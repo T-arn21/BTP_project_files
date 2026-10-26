@@ -1,0 +1,10 @@
+numpy>=1.26,<3
+pandas>=2.2,<3
+scipy>=1.13,<2
+scikit-learn>=1.5,<2
+torch>=2.4,<3
+wfdb>=4.1,<5
+matplotlib>=3.8,<4
+nbformat>=5.10,<6
+pytest>=8,<10
+# Install CUDA-only mamba-ssm / causal-conv1d separately; see README.
