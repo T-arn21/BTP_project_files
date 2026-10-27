@@ -104,94 +104,40 @@ preprocessing ablation. Do not mix these settings across benchmark models.
 
 ## Kaggle GPU execution
 
-1. Create a Kaggle GPU notebook and attach a verified PTB-XL **v1.0.3** dataset.
-   Select a CUDA GPU. No long training has been run by this repository setup.
-2. Download this development branch as a source archive and attach its extracted
-   files as a private Kaggle dataset, keeping `src/`, requirements, tests and the
-   main notebook together. Import `04_btp_experiments.ipynb` into the editor.
-   The source can stay read-only under `/kaggle/input`; outputs go to working.
-3. Set paths before the main notebook bootstrap (replace these example paths
-   with your actual attached folder names):
+Use the updated `04_btp_experiments.ipynb` and follow
+[the exact execution sequence](docs/kaggle_execution.md).
+The notebook now includes source/dataset discovery, opt-in package installation,
+Torch/CUDA/ABI diagnostics, both-task metadata audits, real waveform loading,
+one-step forward/backward smoke tests and independently gated full experiments.
 
-   ```python
-   import os
-   os.environ["BTP_REPO_DIR"] = "/kaggle/input/btp-source/BTP_project_files"
-   os.environ["PTBXL_DATA_DIR"] = "/kaggle/input/ptbxl-v103/ptb-xl-1.0.3"
-   from pathlib import Path
-   assert (Path(os.environ["BTP_REPO_DIR"]) / "src").is_dir()
-   assert (Path(os.environ["PTBXL_DATA_DIR"]) / "ptbxl_database.csv").is_file()
-   ```
+1. Attach the extracted source from `dev/unified-ecg-pipeline` and verified
+   PTB-XL **v1.0.3** as Kaggle datasets. Choose a CUDA GPU.
+2. Import `04_btp_experiments.ipynb`. Source and dataset roots are discovered
+   under `/kaggle/input`; set `BTP_REPO_DIR` / `PTBXL_DATA_DIR` if ambiguous.
+3. If needed, enable `INSTALL_BASE` and then `INSTALL_MAMBA` in their dedicated
+   cells. `requirements-kaggle.txt` deliberately does not request Torch.
+   CUDA packages/wheels must match the running Torch/CUDA/Python/CXX11 ABI.
+   Installation logs stream to the notebook, and failures stop execution.
+   Restart after binary changes and set installation flags back to False.
+4. For a **short real-data smoke**, enable `RUN_METADATA_AUDIT` and `RUN_SMOKE`;
+   keep `RUN_SUPERCLASS` and `RUN_SUBCLASS` False. Both heads use the preserved
+   full reference encoder, 16 training ECGs for smoke-only normalization,
+   one tiny optimization step and one validation forward. No test-fold
+   waveforms or benchmark metrics are used. Reports go to `btp_outputs/smoke/`.
+5. Only after smoke passes, enable `RUN_SUPERCLASS` and/or `RUN_SUBCLASS` for
+   full training/evaluation. These controls are independent. Full cells honor
+   `FULL_EPOCHS` (20 by default) and `FULL_BATCH_SIZE` (8, an explicit memory
+   adjustment from reference batch 64). Full normalization fits every training
+   record, followed by full training/validation/test loaders and normal exports.
+   A one-epoch full-data run is still different from the short smoke.
+6. The last cell verifies all required exports for each completed full run.
+   Save `/kaggle/working/btp_outputs` as Kaggle notebook output.
 
-4. Install the base requirements without unnecessarily replacing Kaggle's
-   existing Torch/CUDA runtime:
-
-   ```python
-   import subprocess, sys
-   subprocess.run([sys.executable, "-m", "pip", "install", "-r",
-                   os.path.join(os.environ["BTP_REPO_DIR"], "requirements.txt")], check=True)
-   import torch
-   print(torch.__version__, torch.version.cuda)
-   print("CXX11 ABI:", torch._C._GLIBCXX_USE_CXX11_ABI)
-   assert torch.cuda.is_available()
-   ```
-
-5. Install CUDA dependencies separately. With Internet and a compatible build
-   environment, following the [official Mamba setup](https://github.com/state-spaces/mamba#installation):
-
-   ```python
-   subprocess.run([sys.executable, "-m", "pip", "install", "packaging", "ninja"], check=True)
-   cuda_build_env = os.environ.copy()
-   cuda_build_env["MAMBA_KEEP_CUDA_BUILD"] = "TRUE"
-   subprocess.run([sys.executable, "-m", "pip", "install", "--no-build-isolation",
-                   "causal-conv1d>=1.4.0", "mamba-ssm"], check=True, env=cuda_build_env)
-   ```
-
-   Current upstream Mamba defaults to a core install without `selective_scan_cuda`;
-   `MAMBA_KEEP_CUDA_BUILD=TRUE` opts into its CUDA extension. Older compatible
-   wheels may already bundle it. The forward test below is the deciding check.
-
-   If source builds fail or Internet is disabled, attach **compatible prebuilt
-   wheels** matching Python, Linux, Torch, CUDA and CXX11 ABI, then use:
-
-   ```python
-   subprocess.run([sys.executable, "-m", "pip", "install", "--no-index",
-                   "--find-links=/kaggle/input/mamba-wheels", "causal-conv1d", "mamba-ssm"], check=True)
-   ```
-
-   There is no universal wheel compatible with every Kaggle runtime. Restart
-   the kernel after installing binary packages if needed and rerun the path
-   setup. Verify **an actual CUDA forward**, rather than only successful import:
-
-   ```python
-   import sys, torch
-   sys.path.insert(0, os.environ["BTP_REPO_DIR"])
-   from src.models.registry import create_model
-   from src.config import ModelConfig
-   m = create_model("mamba", 5, ModelConfig(embed_dim=16, hidden_dim=16, n_layers=1)).cuda().eval()
-   with torch.no_grad():
-       assert m(torch.randn(2, 12, 1000, device="cuda")).shape == (2, 5)
-   del m
-   torch.cuda.empty_cache()
-   ```
-
-6. Run the notebook bootstrap/config cells, set `RUN_TRAINING = True`, and run
-   the superclass/subclass cells. Equivalent calls:
-
-   ```python
-   from src.config import ExperimentConfig, DataConfig
-   from src.experiments import run_experiment
-   cfg = ExperimentConfig(
-       data=DataConfig(data_dir=os.environ["PTBXL_DATA_DIR"], num_workers=2),
-       output_root="/kaggle/working/btp_outputs",
-   )
-   a = run_experiment(model_name="mamba", task="superclass", epochs=20, config=cfg)
-   b = run_experiment(model_name="mamba", task="subclass", epochs=20, config=cfg)
-   ```
-
-   Reference batch size is 64. The large reference model may exceed the GPU's
-   memory; pass `batch_size=8` or 16, record that change, and compare with the
-   same configuration in future experiments. This GPU budget is not verified
-   locally. Save the contents of `/kaggle/working/btp_outputs` as notebook output.
+The full reference model may exceed GPU memory; reduce batch size to 1 for
+smoke or a smaller declared full-run batch and restart. Architecture settings
+are never silently reduced. Successful imports and synthetic local tests do
+not prove CUDA forward/backward or full PTB-XL training works. Those stages
+must still be executed in Kaggle; see the latest `docs/test_results.md`.
 
 ## Training, checkpoints and evaluation
 

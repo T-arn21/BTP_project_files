@@ -1,4 +1,55 @@
-# Executed checks — 2026-10-26
+# Executed checks — latest 2026-10-27
+
+## Kaggle preflight preparation milestone
+
+The repository was clean on `dev/unified-ecg-pipeline` before this milestone.
+The existing commit was pushed successfully to GitHub. New work prepares real
+Kaggle execution; it does **not** claim real PTB-XL waveform or CUDA validation.
+
+Final local command (PowerShell, repository root):
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-kaggle-validation-1 --tb=short
+```
+
+Result: **29 passed, 3 skipped, 5 warnings in 45.28s**. The three skipped tests
+need actual Mamba CUDA kernels. The warnings remain PyTorch's internal
+SequentialLR transition deprecation. Python/Torch/scientific package versions
+are unchanged from the baseline below.
+
+WFDB 4.1.2 was installed with `--target outputs/wfdb-check --no-deps` to avoid
+changing the global Python environment. That ignored folder is not committed;
+normal users install WFDB through requirements. The passing suite includes:
+
+- Unique, absent, ambiguous and invalid explicit dataset-root diagnostics.
+- Both official target vocabularies and metadata audit exports/hashes.
+- Bounded smoke normalization from training IDs only; no test-fold waveform
+  reads, with one tiny train/validation batch for both tasks.
+- A real WFDB `.hea`/`.dat` write/read roundtrip using **locally generated ECG
+  waveforms**, including sampling-frequency validation. These are not PTB-XL.
+- Finite BCE, finite nonzero gradients, actual optimizer weight changes and
+  validation forward using a **test-only CPU linear adapter**. This verifies
+  smoke machinery, not Mamba or GPU execution.
+- Wrong raw waveform shape and missing GPU diagnostics.
+- All updated notebook code cells execute safely with default flags False;
+  no installation, dataset read or training is triggered. Missing smoke/audit
+  evidence blocks the full-run control path. Epochs are centrally configured.
+- All existing pipeline, metrics, synthetic experiment and checkpoint-resume
+  tests continue to pass.
+
+`python -m compileall -q src tests`, notebook schema/syntax validation and
+`git diff --check` also pass. Original reference notebooks remain untouched.
+
+Still requires **actual Kaggle execution**: discovering the user's attached
+real v1.0.3 dataset, auditing its patient metadata, reading its real 100 Hz
+waveforms, matching CUDA wheels, initializing the full 384-wide/eight-block
+Mamba, passing real-data forward/backward/AMP smoke for both heads, fitting
+full-training normalization, completing superclass/subclass training and test
+evaluation, validating GPU memory use, and inspecting/exporting those real-run
+artifacts. See `kaggle_execution.md` and the notebook's explicit run controls.
+
+## Baseline milestone — 2026-10-26
 
 Final automated command, run from `D:\Coding\BTP\BTP_project_files`:
 
