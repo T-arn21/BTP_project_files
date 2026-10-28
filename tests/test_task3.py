@@ -189,53 +189,54 @@ def test_final_notebook_order_and_disabled_execution(monkeypatch):
         tags += cell.metadata.tags
         source = cell.source
         if "final-config" in cell.metadata.tags:
-            # Test the real sequential cells without network, data or GPU work.
             source = source.replace("RUN_SUPERCLASS = True", "RUN_SUPERCLASS = False").replace("RUN_SUBCLASS = True", "RUN_SUBCLASS = False")
             source = source.replace("RUN_SMOKE = True", "RUN_SMOKE = False").replace("RUN_METADATA_AUDIT = True", "RUN_METADATA_AUDIT = False")
         exec(compile(source, "05_btp_kaggle_final", "exec"), namespace)
-    assert tags == ["final-config", "final-discovery", "final-setup", "final-audit", "final-cache", "final-smoke",
-                    "final-superclass", "final-subclass", "final-exports", "final-summary"]
-    assert not namespace["ACTIVE"] and namespace["FULL_EPOCHS"] == 10
+    assert tags == ["final-config", "final-bootstrap", "final-summary"]
+    assert not namespace["ACTIVE"] and namespace["EXECUTION_SUMMARY"]["status"] == "skipped"
+    embedded = next(c.source for c in book.cells if "final-bootstrap" in c.metadata.get("tags", []))
+    assert embedded.startswith((root / "src/bootstrap.py").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("diagnostic", [False, True])
-def test_final_notebook_sequential_cpu_adapters(monkeypatch, synthetic_root, tmp_path, diagnostic):
-    """Exercise Run All order with explicit test doubles for installation and CUDA."""
+def test_final_pipeline_sequential_cpu_adapters(monkeypatch, synthetic_root, tmp_path, diagnostic):
+    """Exercise fresh-worker stage order with explicit CUDA/model test doubles."""
     import nbformat
     import src.data as data_module
     import src.kaggle as kaggle
-    import src.kaggle_setup as setup
     import src.models.registry as registry
     import src.experiments as experiments
+    from src.unattended import run_worker
     root = Path(__file__).parents[1]
     (synthetic_root / "records100").mkdir()
     original_load = data_module.load_ptbxl
     original_smoke = kaggle.smoke_forward_backward
+    original_prepare = kaggle.prepare_smoke_data
     factory = lambda name, n_classes, config: nn.Sequential(nn.AdaptiveAvgPool1d(1), nn.Flatten(), nn.Linear(12, n_classes))
     monkeypatch.setattr(data_module, "load_ptbxl", lambda *a, **kw: original_load(*a, **kw, reader=synthetic_reader))
     monkeypatch.setattr(registry, "create_model", factory)
     monkeypatch.setattr(experiments, "create_model", factory)
-    monkeypatch.setattr(setup, "setup_dependencies", lambda *a, **kw: {"installation": "test_double_no_install"})
+    original_config = ExperimentConfig
+    import src.config as config_module
+    monkeypatch.setattr(config_module, "ExperimentConfig", lambda **kwargs: original_config(**{**kwargs, "device": "cpu"}))
     monkeypatch.setattr(kaggle, "require_cuda", lambda: None)
+    monkeypatch.setattr(kaggle, "prepare_smoke_data", lambda *a, **kw: original_prepare(*a, **kw, reader=synthetic_reader))
     monkeypatch.setattr(kaggle, "smoke_forward_backward", lambda model, batch, **kw:
                         original_smoke(model, batch, device="cpu", mixed_precision=False, require_gpu=False))
-    book = nbformat.read(root / "05_btp_kaggle_final.ipynb", as_version=4)
     namespace = {}
-    for cell in book.cells:
-        if cell.cell_type != "code":
-            continue
-        source = cell.source
-        if "final-config" in cell.metadata.tags:
-            source += f"\nSOURCE_ROOT={str(root)!r}\nDATASET_ROOT={str(synthetic_root)!r}\nOUTPUT_ROOT={str(tmp_path / 'session_outputs')!r}\nCACHE_DIR={str(tmp_path / 'signals_cache')!r}\nFULL_EPOCHS=1\nFULL_BATCH_SIZE=4\nNORMALIZATION_SAMPLES=4\nDIAGNOSTIC_MODE={diagnostic!r}\n"
-        if "final-setup" in cell.metadata.tags:
-            source += '\nCONFIG=replace(CONFIG, device="cpu")\n'
-        exec(compile(source, "final_run_all_test_doubles", "exec"), namespace)
-    assert namespace["TASK_ERRORS"] == {}
-    assert set(namespace["TASK_RESULTS"]) == {"superclass", "subclass"}
-    assert set(namespace["SMOKE_REPORTS"]) == {"superclass", "subclass"}
-    final = json.loads((namespace["SESSION_DIR"] / "final_summary.json").read_text())
+    book = nbformat.read(root / "05_btp_kaggle_final.ipynb", as_version=4)
+    exec(book.cells[1].source, namespace)
+    settings = namespace["SETTINGS"]
+    session = tmp_path / "session_outputs"
+    session.mkdir()
+    settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=str(synthetic_root), SESSION_DIR=str(session),
+                    CACHE_DIR=str(tmp_path / "signals_cache"), FULL_EPOCHS=1, FULL_BATCH_SIZE=4,
+                    NORMALIZATION_SAMPLES=4, SMOKE_FIT_RECORDS=4, DIAGNOSTIC_MODE=diagnostic)
+    assert run_worker(settings) == 0
+    final = json.loads((session / "final_summary.json").read_text())
+    assert final["errors"] == {} and set(final["completed"]) == {"superclass", "subclass"}
     assert final["diagnostic_only"] is diagnostic
-    for task, result in namespace["TASK_RESULTS"].items():
+    for task, result in final["completed"].items():
         assert result["summary"]["benchmark_result"] is not diagnostic
         assert (Path(result["output_dir"]) / "test").exists() is not diagnostic
 

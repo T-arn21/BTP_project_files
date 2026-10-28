@@ -81,7 +81,7 @@ def run_logged(command, log_path, env=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     print("Running:", " ".join(map(str, command)), "Log:", path, flush=True)
     start = monotonic()
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                text=True, errors="replace", env=env)
     lines = queue.Queue()
     def read_lines():

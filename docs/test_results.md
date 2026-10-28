@@ -1,3 +1,67 @@
+# Unattended Kaggle entry-point release — 2026-10-28
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-unattended-final --tb=short
+```
+
+**49 passed, 3 skipped, 5 warnings in 24.90s.** The three skipped checks require
+real CUDA Mamba. Warnings remain the existing PyTorch SequentialLR transition
+notice. No new real Kaggle authentication or GPU benchmark was executed here.
+
+The local Git integration tests ran outside the Windows sandbox because its
+MSYS local-transport startup was denied. They use disposable local/bare
+repositories and a fake secret only; they make no GitHub authentication calls.
+Initial CPU fixtures were updated to inject the synthetic reader into the new
+pre-cache smoke path. The complete release suite then passed.
+
+## New checks executed
+
+- Clone and fast-forward a real disposable Git branch; verify synchronized
+  local/remote commit IDs and a clean checkout after updates.
+- Refuse tracked and untracked local edits before requesting a secret;
+  preserve local-only/diverged commits without reset, stash or clean.
+- Verify a fake secret never enters command arguments, helper-file contents,
+  Git configuration or displayed output; helper files are removed.
+- Kaggle Secrets provider failure details and Git authentication output are
+  suppressed rather than leaking their raw messages. Real Kaggle Secrets
+  access still requires execution on the platform.
+- Verify source precedence in a fresh interpreter despite an intentionally
+  preloaded stale src package from another directory.
+- Verify the controller launches a fresh worker, removes GitHub-token
+  environment variables from worker execution, and fails if the worker
+  exits without a completed execution summary.
+- Verify bootstrap/setup failure summaries retain their correct stage and
+  success summaries identify completed experiments/output paths.
+- Simulate an interrupted checkpoint write and verify the preceding completed
+  checkpoint remains byte-for-byte intact.
+- Execute all notebook cells sequentially with flags off. Verify the embedded
+  bootstrap exactly matches its tested standard-library module source.
+- Execute both complete worker orchestration branches (full-data and diagnostic)
+  with explicit CPU CUDA/model test doubles, synthetic reader, actual training,
+  checkpointing, evaluation, cache reuse and export checks. The new short smoke
+  occurs before the full cache build. These are not real Mamba GPU results.
+- Existing head, normalization, cache, labels, patient folds, generated WFDB
+  file roundtrip and deterministic CPU resume regressions remain passing.
+
+Compileall, notebook schema/syntax, and Git whitespace checks also pass.
+All three original reference notebooks, 04, and the user's attempt notebook
+remain unchanged. Final notebook controls now live in the first cell; the
+embedded bootstrap needs no attached source dataset. Git/pip execution is
+noninteractive, long stages have 30-second progress, and scientific imports
+occur in a fresh process after installation, without a kernel restart.
+
+## Real execution still required
+
+Kaggle secret permission/read access, GitHub synchronization from that runtime,
+wheel/source-build compatibility, real data/GPU/AMP smoke, cache throughput,
+VRAM feasibility and full superclass/subclass training/test scores remain
+unverified locally. The final notebook prints and persists passed checks,
+completed/skipped/failed experiments and results under
+`/kaggle/working/btp_outputs/sessions/<run_id>/final_summary.json`.
+
+---
+
 # Task 3 release checks — 2026-10-28
 
 Repository: existing dev/unified-ecg-pipeline. Remote fetched before changes.

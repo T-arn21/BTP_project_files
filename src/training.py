@@ -7,9 +7,18 @@ import random
 import numpy as np
 import pandas as pd
 import torch
+import os
 from torch import nn
 from .evaluation import evaluate
 from .utils import log_progress
+
+
+def atomic_checkpoint(state, path):
+    """Keep the previous completed checkpoint intact if writing is interrupted."""
+    path = Path(path)
+    partial = path.with_suffix(".partial.pth")
+    torch.save(state, partial)
+    os.replace(partial, path)
 
 
 def make_pos_weight(labels, maximum=8.0):
@@ -161,10 +170,12 @@ class Trainer:
                          augmentation_rng=aug.rng.bit_generator.state if aug is not None else None)
             save_start = perf_counter()
             log_progress(f"Saving checkpoint epoch {epoch} to {self.directory}")
-            torch.save(state, self.directory / "last.pth")
             if improved:
-                torch.save(state, self.directory / "best.pth")
-            pd.DataFrame(self.history).to_csv(self.directory / "history.csv", index=False)
+                atomic_checkpoint(state, self.directory / "best.pth")
+            atomic_checkpoint(state, self.directory / "last.pth")
+            history_partial = self.directory / "history.partial.csv"
+            pd.DataFrame(self.history).to_csv(history_partial, index=False)
+            os.replace(history_partial, self.directory / "history.csv")
             log_progress(f"Checkpoint saved in {perf_counter() - save_start:.2f}s")
             log_progress(f"Epoch {epoch}/{self.config.epochs}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}, val_AUROC={val_auc:.4f}")
             if self.counter >= self.config.patience:

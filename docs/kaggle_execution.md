@@ -1,28 +1,26 @@
-# Run 05_btp_kaggle_final.ipynb end to end
+# Fully automated Kaggle execution
 
-This is the primary execution notebook. `04_btp_experiments.ipynb` is kept as a
-development reference. `ecg-xl-btp.ipynb` preserves the user's Kaggle attempts
-and temporary fixes. Those fixes are now in modules; **do not patch source or
-reload modules manually** in the final notebook. Start from a fresh session.
+Use the latest **05_btp_kaggle_final.ipynb** from `dev/unified-ecg-pipeline`.
+The notebook is a self-contained entry point; it synchronizes source from GitHub.
+`04` and `ecg-xl-btp` remain development/attempt references, not execution prerequisites.
 
-## 1. Prepare attached inputs
+## One-time preparation before Run All
 
-1. Download the latest **dev/unified-ecg-pipeline** branch source from GitHub,
-   extract it, and create/upload a private Kaggle source dataset. Include
-   `src/`, both requirements files and `05_btp_kaggle_final.ipynb`. Exclude
-   `.git/`, `outputs/`, datasets, local caches, credentials and virtualenvs.
-2. Attach an extracted PTB-XL dataset. Its root must contain
-   `ptbxl_database.csv`, `scp_statements.csv`, and `records100/` with matching
-   `.hea` and `.dat` files. Nested input directories are supported.
-3. Attach compatible Mamba wheels if available. Both causal-conv1d and
-   mamba-ssm wheels are needed, plus missing runtime dependencies offline.
-4. Select a GPU (the reported working hardware was Tesla T4), and enable
-   Internet if source build or base package installation will need downloads.
-5. Import/open `05_btp_kaggle_final.ipynb` from the repository.
+1. Import the latest final notebook into Kaggle. You do **not** need a Kaggle
+   source dataset or a manually cloned checkout.
+2. Attach extracted PTB-XL data containing `ptbxl_database.csv`,
+   `scp_statements.csv` and `records100/` with matching `.hea`/`.dat` files.
+   Attach compatible Mamba wheels if available.
+3. Enable a CUDA GPU and Internet. GitHub synchronization needs Internet even
+   when package wheels are attached. The reported successful hardware was T4.
+4. In Kaggle Secrets, create **GITHUB_TOKEN** and grant this notebook access.
+   Its GitHub permissions must allow reading T-arn21/BTP_project_files
+   (e.g. Contents: Read for that repository). Never paste the value into code,
+   URLs, notebook settings, output or logs.
+5. Configure the **first cell only**, then choose Run All / Save & Run All.
+   No manual execution/restarts/edits/input are needed between stages.
 
-## 2. Set only the initial configuration cell
-
-The default controls are:
+## Initial settings
 
 ```python
 RUN_SUPERCLASS = True
@@ -31,172 +29,145 @@ RUN_SMOKE = True
 RUN_METADATA_AUDIT = True
 FULL_EPOCHS = 10
 FULL_BATCH_SIZE = 8
+EARLY_STOPPING_PATIENCE = 15
+DIAGNOSTIC_MODE = False
 NUM_WORKERS = 0
 NORMALIZATION_MODE = "sampled"
 NORMALIZATION_SAMPLES = 1000
-NORMALIZATION_SEED = 42
-CACHE_SIGNALS = True
-DIAGNOSTIC_MODE = False
 ```
 
-Set `SUPERCLASS_EPOCHS`/`SUBCLASS_EPOCHS` to override the shared epoch budget,
-otherwise leave None. Set a task flag False to skip that full experiment.
-`RUN_SMOKE` runs both heads' one-step smoke; metadata integrity checks remain
-mandatory in the loader even when the extra metadata-report flag is False.
-Full experiments initialize fresh models and run **sequentially**.
+The first cell also exposes per-task epoch overrides, optimizer parameters,
+normalization seed, smoke budget, source-build/wheel options, filters,
+augmentation and resume paths. Use task flags to skip one model. The reference
+384-wide/eight-block architecture is preserved. Batch 8 is an explicit memory
+adjustment from reference batch 64, not a reduction of the training dataset.
 
-Set `SOURCE_ROOT`/`DATASET_ROOT` if discovery has zero/multiple candidates.
-They may instead come from BTP_REPO_DIR/PTBXL_DATA_DIR. Use exact extracted
-roots, not ZIP paths. Example only (replace with your actual inputs):
+Default source checkout is `/kaggle/working/BTP_project_files`, branch
+`dev/unified-ecg-pipeline`. OUTPUT_ROOT is `/kaggle/working/btp_outputs`; the
+shared cache is OUTPUT_ROOT/cache. Dataset root is auto-detected under Kaggle
+inputs; set DATASET_ROOT only if multiple candidates need disambiguation.
 
-```python
-SOURCE_ROOT = "/kaggle/input/datasets/<you>/btp-source/BTP_project_files"
-DATASET_ROOT = "/kaggle/input/datasets/<owner>/ptb-xl/ptb-xl-1.0.1"
-DATASET_VERSION = "1.0.1"
-```
+Set DATASET_VERSION honestly. Default **1.0.1** matches the user's reported
+successful smoke input; use **1.0.3** only when that release is actually attached.
+Root, metadata hashes and operator-declared release are recorded; CSV schema
+alone does not certify version. Do not pool different releases as one benchmark.
 
-The default declared version is **1.0.1**, matching the user's successful smoke
-input. Change it to **1.0.3 only if that is the actual attached release**.
-The record is explicitly operator-declared, not independently certified from
-CSV schema. Root and metadata hashes are saved. Release differences affect
-cohort/splits/counts; compare models using the same release and preprocessing.
-Do not combine 1.0.1 and 1.0.3 results as the same benchmark.
+## What happens automatically
 
-## 3. Choose smoke, fast diagnostic or full benchmark
+1. Retrieve GITHUB_TOKEN using `kaggle_secrets.UserSecretsClient`.
+2. Clone the private repository or fetch and fast-forward the requested branch.
+   Dirty tracked/untracked files, a wrong origin, or local-only/divergent commits
+   cause a refusal. No reset/stash/clean or forced local branch overwrite occurs.
+   The token is never in a URL, argv, Git config, helper contents or logs.
+   Only Git clone/fetch receive it in temporary child environments.
+3. Verify source imports resolve to the synchronized checkout, not old inputs.
+   Start a clean standard-library controller process for dependency setup.
+4. Install missing base dependencies without installing/replacing Torch.
+   Keep already-working CUDA packages; try attached compatible wheels first;
+   use source builds only if ALLOW_SOURCE_BUILD=True. Build with the successful
+   KEEP_CUDA=True, MAX_JOBS=2 and --no-build-isolation/-v recipe. Save wheels.
+5. Verify actual Mamba CUDA forward/backward, then launch a **fresh scientific
+   worker**. Notebook-kernel caches are irrelevant; no kernel restart is assumed.
+6. Auto-discover PTB-XL and audit both label sets and patient separation.
+   Five superclasses and all 23 mapped subclasses retain multi-label diagnoses
+   and rare columns. Folds remain train 1–8, validation 9, test 10.
+7. Run a small real-data full-architecture GPU/AMP smoke **before full caching**.
+   It uses a tiny training-only fit and train/validation batches; no test access
+   or benchmark metrics. Smoke weights are discarded.
+8. Build/validate a shared deterministic float32 waveform memory map once,
+   fit/cache training-only normalization and reuse it across tasks and epochs.
+9. Train superclass Mamba, evaluate/export it, release model memory, then do
+   the same for subclass Mamba. Full modes use all training records and
+   validation-only model/threshold selection, followed by held-out test metrics.
+10. Verify exports and persist/print a concise summary of passed checks,
+    completed/skipped/failed experiments and result directories.
 
-- **Smoke only:** set both full task flags False, keep RUN_SMOKE=True. It still
-  prepares the shared cache/statistics; each head gets one train step and one
-  validation forward, without test evaluation or benchmark metrics.
-- **Fast diagnostic:** set DIAGNOSTIC_MODE=True and DIAGNOSTIC_BATCHES=2,
-  FULL_EPOCHS=1. Enabled tasks use at most two train/validation batches, never
-  test, and write `diagnostic/` artifacts with benchmark_result=False. This
-  quickly tests first-batch, optimization, checkpoint and evaluation/export
-  plumbing. Normalization still samples up to 1000 training ECGs (reduce
-  NORMALIZATION_SAMPLES explicitly for an even smaller diagnostic).
-- **Full benchmark:** DIAGNOSTIC_MODE=False, desired task flags True. All
-  labeled training records are used, including the final partial batch. The
-  small normalization fit is a declared preprocessing strategy, **not** a
-  hidden reduction of the training dataset. Exact statistics are available
-  with NORMALIZATION_MODE="full". A full one-epoch run is not a smoke test.
+A token/clone/setup/GPU/smoke failure stops clearly with a saved failure summary.
+Task-level training failures preserve their run logs and completed artifacts;
+by default the other task is attempted, then the final status is failed.
+No missing-variable dependency on later cells is needed to save failure evidence.
 
-Then choose Run All / Save & Run All. No intermediate input or changes are
-required. Default full runs train both tasks up to 10 epochs with early stopping.
-Use smaller batches on OOM; architecture is not silently reduced.
+## Progress, cache and interruptions
 
-## 4. Dependency lifecycle
+The notebook launcher, stage logger and installer emit progress/heartbeats at
+most 30 seconds apart while waiting. Logs identify signature scans, cache record
+counts, normalization, first-batch wait, GPU forward/backward, epochs and checkpoint
+writes. Data-wait timing is recorded in epoch history. Initial cache creation
+still pays real I/O once; measured Kaggle throughput remains unverified.
 
-The reported successful build used Python 3.13.15, Torch 2.11.0+cu128,
-CUDA toolkit 12.8, Tesla T4, CXX11 ABI=True, causal-conv1d==1.7.0,
-mamba-ssm==2.3.2.post1 and wfdb==4.3.1. These versions are preserved as the
-known working recipe, not a guarantee for every Kaggle image.
+The cache stores filtered, center-padded **unnormalized/unaugmented** float32
+signals (~1.05 GB at 100 Hz). Samples normalize and augment only during training;
+WFDB/filtering is not repeated each epoch. Default normalization samples up to
+1000 official-training IDs deterministically; full mode computes exact training
+statistics. Both tasks share the same identity/configuration/IDs/means/stds.
 
-The setup is standard-library-only, before scientific imports:
+Cache keys include dataset metadata/root/raw-file stats, preprocessing code,
+settings and numerical package versions. Shape/size/SHA256 validation protects
+completed arrays; invalid/incomplete arrays rebuild. Use a new cache directory
+for timestamp-preserving raw source changes. Do not run concurrent cache writers.
 
-1. Install missing base requirements if INSTALL_BASE=True. Torch is not in
-   `requirements-kaggle.txt` and is never explicitly installed/replaced.
-2. Probe an already installed Mamba using actual CUDA forward/backward in a
-   fresh Python process; skip CUDA-package installation if it works.
-3. If WHEEL_DIR is given, use it. Otherwise look for attached mamba_ssm and
-   causal_conv1d wheels under `/kaggle/input`. Pip must find compatible tags;
-   packages install with --no-deps so they cannot replace Torch implicitly.
-4. If no working wheels, source build is allowed only when the initial
-   ALLOW_SOURCE_BUILD=True (default explicit fallback). Both pinned packages
-   build with `MAMBA_KEEP_CUDA_BUILD=TRUE`, `MAX_JOBS=2`, --no-build-isolation
-   and -v. `pip wheel` preserves wheel artifacts before installing them.
-5. The actual CUDA probe must pass after installation. Failed command exit
-   status and logs are retained, including ABI/runtime information.
+Completed epoch checkpoints, history and JSON summaries are atomically replaced;
+an interrupted write leaves the previous complete file. Each passed check/task
+updates final_summary.json immediately. Retain saved Kaggle notebook outputs:
+Kaggle may discard working files when a session is destroyed. Interrupted cache
+builds are validated/rebuilt rather than trusted as complete training data.
 
-A source build can take a long time and requires nvcc/compiler and enough
-working disk/RAM. Installation logs stream with periodic waiting messages.
-Current upstream installation details: https://github.com/state-spaces/mamba#installation.
-Do not force a CPU Torch wheel onto Kaggle. A core-only Mamba install is not
-proof of working selective-scan CUDA kernels.
+To resume, restore prior outputs to writable working storage and set
+RESUME_RUN_DIRS in the first cell. Keep last.pth, best.pth and the original
+config/manifests together. Match epoch budget, release, data/cache paths, model,
+seed and preprocessing. Resume restores optimizer/scheduler/RNG state and rejects
+incompatible settings. CPU zero-worker continuation is tested; fused CUDA kernels
+and multi-worker restarts need not be bitwise reproducible.
 
-Keep session `mamba_wheels/` and its `environment.json`/setup report as Kaggle
-outputs. Upload wheels as a private dataset for the next session. Match Python
-ABI (e.g. cp313), Linux architecture, Torch minor, CUDA and CXX11 ABI. **Packages
-do not survive a fresh session**; attach/install wheels again. Run All works
-without a manual kernel restart when started fresh and setup precedes imports.
-If you have already imported/replaced binary packages interactively, restart
-once before Run All to avoid stale modules.
+## Diagnostic versus benchmark runs
 
-## 5. Cache and normalization behavior
+For a short end-to-end plumbing check, set DIAGNOSTIC_MODE=True,
+DIAGNOSTIC_BATCHES=2 and FULL_EPOCHS=1 before starting. Reduce
+NORMALIZATION_SAMPLES explicitly if an even smaller diagnostic is desired.
+These runs cap train/validation records, never evaluate fold 10, and have
+benchmark_result=False in separate diagnostic directories. Full benchmarks never
+silently truncate the dataset. Early stopping within the configured full budget
+is expected completion; failed or batch-limited runs are not complete benchmarks.
 
-The first build reads WFDB and filters each needed 100 Hz recording once.
-It writes a compact float32 memory map, usually ~1.05 GB for the full dataset,
-with atomic completion manifest. It does not cache augmentation or store a
-second normalized full array. Training samples normalize from the saved stats
-and apply stochastic augmentation afterward; validation/test remain deterministic.
+## Dependency compatibility and wheel preservation
 
-Default sampled normalization uses up to 1000 reproducibly chosen official
-training IDs, before label exclusions. Full mode uses every training record.
-Cached JSON includes the selected IDs, mode, seed, sample count, mean/std and
-preprocessing identity. Superclass/subclass runs share these exact statistics.
+User-reported working setup: Python 3.13.15, Torch 2.11.0+cu128, toolkit 12.8,
+Tesla T4, ABI=True; causal-conv1d 1.7.0, mamba-ssm 2.3.2.post1, WFDB 4.3.1.
+These are the known recipe, not a guarantee for every Kaggle image. Wheels must
+match Python ABI, OS/architecture, Torch minor, CUDA and CXX11 ABI. Fresh sessions
+need packages installed again. Save session mamba_wheels/ as a private Kaggle
+input for future runs. Source builds need nvcc/compiler, disk/RAM and Internet;
+their full logs and waiting heartbeats are preserved. Import success alone is
+not considered working CUDA. A failed compatibility probe stops execution.
 
-`CACHE_DIR` defaults to `/kaggle/working/btp_cache`. Metadata/raw-file-stat,
-preprocessing code/settings and numerical package versions key the cache;
-arrays have shape/dtype/size/SHA256 checks. Corrupt/incomplete caches rebuild.
-Changing model/task/augmentation need not rebuild deterministic signals.
-Changing sampling/filter/length/data identity does. Rebuilding remains
-single-writer; do not run two cache-building notebooks against the same folder.
-For timestamp-preserving source changes, use a new cache directory/rebuild.
-
-Progress is explicit during metadata/signature checks, preprocessing,
-normalization, loader/trainer initialization, first batch/step, batches/epochs
-and checkpoint writes. Optional workers have timeout/bounded prefetch/persistent
-workers. Start with NUM_WORKERS=0; only increase after profiling.
-
-## 6. Find outputs and diagnose failure
-
-Each execution creates:
+## Output locations and summary
 
 ```text
-/kaggle/working/btp_outputs/sessions/<timestamp_id>/
-  pipeline.log, pipeline_status.json, final_summary.json
-  environment.json, session_config.json, setup_report.json
-  metadata_audit.json, normalization.json, *_class_statistics.csv
-  *_smoke.json
-  setup_logs/, mamba_wheels/
-  experiments/benchmark/<task_run>/      # complete-data runs
-  experiments/diagnostic/<task_run>/     # limited diagnostic runs
+/kaggle/working/btp_outputs/
+  cache/                              # shared reusable waveform/statistics cache
+  sessions/<timestamp_id>/
+    execution_config.json             # explicitly whitelisted nonsecret controls
+    launcher.log, pipeline.log, worker.log, pipeline_status.json
+    final_summary.json                # checks + experiment status + completed paths/errors
+    environment.json, session_config.json, setup_report.json
+    metadata_audit.json, normalization.json, *_smoke.json, *_class_statistics.csv
+    setup_logs/, mamba_wheels/
+    experiments/benchmark/<task_run>/
+    experiments/diagnostic/<task_run>/
 ```
 
-Task folders contain `run.log`, `status.json`, config/environment/data manifests,
-class statistics, `best.pth`, `last.pth`, history and loss/confusion figures.
-Benchmark folders also contain validation thresholds, validation/test/fixed-.5
-metrics and predictions. Diagnostics only export diagnostic_validation/. They
-cannot silently create test results or be labeled successful benchmarks.
+Task folders have atomic best/last checkpoints, config/environment/data manifests,
+class counts, history, loss/confusion figures, run.log/status.json and summaries.
+Benchmark folders additionally have validation thresholds and validation/test/
+fixed-.5 metrics and prediction CSVs. Diagnostic outputs cannot be labeled test
+benchmarks. The notebook prints the concise execution summary even on bootstrap
+or setup failure; completed checks/tasks are not lost when another stage fails.
 
-The notebook verifies required exports. If a task fails, its stage/log and
-completed artifacts survive. By default the other task is still attempted;
-final_summary records errors and the notebook raises at the end to signal
-failure. An earlier setup/cache failure stops immediately with stage logs.
-Save the entire session directory even after failure.
+## Validation limits
 
-For a stall, inspect the last log: metadata/stat scan, cache record count,
-normalization count, loader first-batch wait, model forward/backward, metrics,
-or checkpoint write. History contains train/validation data-wait timing. Near-zero
-GPU usage alone is insufficient to prove a deadlock. Initial cache creation
-still pays I/O once; measured Kaggle speedups/throughput remain unverified.
-
-## 7. Resume an interrupted run
-
-Retain best.pth, last.pth, config and data manifests together. Copy a previous
-Kaggle output run folder to writable `/kaggle/working` if needed. Reattach the
-same source dataset/release and reuse/rebuild the exact preprocessing cache.
-Set the initial `RESUME_RUN_DIRS` mapping to the original writable task run
-folder. Keep the original epoch budget (e.g. interrupted epoch 3 of 10 resumes
-through 10), seed, task and data/model settings. The notebook checks them and
-restores the old output_root instead of silently changing schedules.
-
-Incompatible pre-Task-3 checkpoints/settings require a new run. Zero-worker CPU
-RNG continuation is tested; CUDA fused kernels/multi-worker restarts may not be
-bitwise reproducible. Avoid changing diagnostic mode or class order on resume.
-
-## Remaining real-GPU validation
-
-The user reports prior real CUDA/AMP smoke success, not full benchmark results.
-Local tests execute CPU synthetic data and explicit CUDA/model/setup test doubles.
-Actual cached PTB-XL throughput, GPU utilization/memory, full Mamba epochs,
-AMP stability and test metrics on either release must be measured in Kaggle.
-Do not report a complete benchmark unless its real run and exports succeeded.
+Local tests exercise Git safety with disposable local repositories and fake
+secrets, worker/import isolation, summaries, atomic writes and CPU synthetic
+training/evaluation. They do not authenticate to Kaggle or execute real Mamba
+GPU training. Actual secret access, GitHub clone inside Kaggle, pinned CUDA build,
+real cache throughput/VRAM/AMP and complete superclass/subclass benchmarks must
+still be executed there. No new GPU classification results are claimed here.

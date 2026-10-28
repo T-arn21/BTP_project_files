@@ -5,6 +5,7 @@ import importlib.metadata
 from pathlib import Path
 import numpy as np
 import torch
+import os
 from datetime import datetime, timezone
 
 
@@ -34,7 +35,10 @@ def write_json(path, value):
         if isinstance(x, np.integer):
             return int(x)
         return x
-    Path(path).write_text(json.dumps(clean(value), indent=2, allow_nan=False), encoding="utf-8")
+    path = Path(path)
+    temporary = path.with_suffix(path.suffix + ".partial")
+    temporary.write_text(json.dumps(clean(value), indent=2, allow_nan=False), encoding="utf-8")
+    os.replace(temporary, path)
 
 
 def environment_info():

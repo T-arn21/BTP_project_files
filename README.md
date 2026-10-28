@@ -11,30 +11,46 @@ No extra architectures or SSL pretraining are implemented.
 - Targets: five superclasses `NORM, MI, STTC, CD, HYP`, or all **23** official
   diagnostic subclasses (not 24), sorted by their official mapping names.
 
-## Run on Kaggle
+## Fully automated Kaggle execution
 
-Follow [the full execution guide](docs/kaggle_execution.md). In brief:
+The final notebook is self-contained as an entry point. It securely retrieves
+`GITHUB_TOKEN` from Kaggle Secrets, clones/fast-forwards this branch into
+`/kaggle/working/BTP_project_files`, and runs the reusable modules from that
+synchronized checkout. **No attached source dataset is required.**
 
-1. Download this development branch, extract it, and create a private Kaggle
-   source dataset containing `src/`, requirements and `05_btp_kaggle_final.ipynb`.
-2. Attach extracted PTB-XL metadata and `records100/`, plus compatible Mamba
-   wheels if available. Select a GPU and import the final notebook.
-3. Configure **section 1 only**. Set source/data overrides if discovery would
-   be ambiguous, and set `DATASET_VERSION` honestly. The supplied successful
-   smoke used a directory labeled **1.0.1**; the research target **1.0.3** is a
-   different release. Version is operator-declared, with root and metadata hashes.
-4. For a first quick diagnostic, set `DIAGNOSTIC_MODE=True`. For benchmark
-   runs leave it False. Default controls enable both tasks, smoke and audit,
-   with `FULL_EPOCHS=10`, `FULL_BATCH_SIZE=8`, and `NUM_WORKERS=0`.
-5. Run All / Save & Run All. No source patching, kernel reload commands,
-   interactive prompts or intermediate cell editing is required in a fresh
-   session. Models run sequentially. Save the session outputs and built wheels.
+Before starting, import the latest `05_btp_kaggle_final.ipynb`, enable a GPU and
+Internet, attach PTB-XL (plus compatible wheels if available), and enable a
+Kaggle secret named `GITHUB_TOKEN` with read access to this repository. Configure
+only the first cell: release/data paths if needed, task flags, epochs/batch,
+early-stopping patience and optimizer settings. Then **Run All / Save & Run All**.
+There are no intermediate prompts, source edits, cell reruns or kernel restarts.
+See [the execution guide](docs/kaggle_execution.md) for the exact sequence.
 
-A short diagnostic limits train/validation batches, writes explicitly labeled
-`diagnostic/` results, and never evaluates held-out test data or tunes benchmark
-thresholds. A full benchmark never silently truncates the training dataset.
-The optional full-architecture smoke performs one real optimization step per
-head, without test evaluation; its losses are not classification benchmarks.
+Git credentials never enter URLs, argv, Git configuration, saved settings or
+logs. A transient askpass script contains only environment lookup; the token
+is passed only to clone/fetch child environments and removed afterward.
+Existing uncommitted files, wrong origins or local-only/divergent commits are
+refused; there is no reset, stash or clean. Python source precedence is verified.
+
+Dependency setup runs in a clean controller interpreter, and scientific work
+runs in a second fresh interpreter after installation. This avoids relying
+on restarting a kernel that may already have older modules/binaries loaded.
+Source, dependencies, CUDA, patient audit and short real-data GPU smoke are
+verified before the full deterministic waveform cache is prepared. The two
+full experiments then run sequentially with all requested training records.
+
+Defaults enable both tasks, smoke and audit, with 10 epochs, batch 8, workers 0,
+and sampled 1000-training-record normalization. DIAGNOSTIC_MODE=True selects
+explicitly limited train/validation-only diagnostics, not benchmark completion.
+Early stopping and full budgets are first-cell settings. Every stage has
+progress/30-second heartbeats and a persisted pass/fail summary.
+
+All results, cache, logs, wheel artifacts and checkpoints are under
+`/kaggle/working/btp_outputs/`. Epoch checkpoints, history and JSON summaries
+use atomic replacement so an interrupted write preserves the preceding complete
+file. Completed tasks/checks are recorded immediately. Kaggle can discard
+working storage when destroying a session: retain saved notebook outputs for
+future-session resume; local checkpoints cannot override platform retention.
 
 ## Dataset structure and release consistency
 
@@ -80,7 +96,7 @@ pad-crop happens once. One float32 NumPy memory map stores **unaugmented,
 unnormalized** signals (~1.05 GB for 21,800 100 Hz ECGs). Samples read the local
 cache, normalize with saved statistics, then augment only for training.
 This avoids duplicate normalized arrays and repeated WFDB/filter work per epoch.
-Default cache location in the final notebook is `/kaggle/working/btp_cache`.
+Default cache location is `/kaggle/working/btp_outputs/cache`.
 The first build still pays real waveform I/O/filtering costs, with progress.
 
 Cache identity includes root, declared release, both metadata hashes, source
@@ -165,8 +181,8 @@ as well as syntax/schema checks. This is not evidence of GPU benchmark success.
 See [test results](docs/test_results.md).
 
 Core modules: `config`, `data`, `cache`, `signal`, `augmentation`, `models/mamba`,
-`training`, `evaluation`, `experiments`, `kaggle` and standard-library-only
-`kaggle_setup`. Future architectures may use the registry; none are added now.
+`training`, `evaluation`, `experiments`, `kaggle`, `kaggle_setup`, secure standard-library
+`bootstrap`, and the `unattended` controller/worker. Future architectures may use the registry; none are added now.
 `MambaEncoder`/`forward_features` expose the encoder for future SSL only.
 
 ## References
