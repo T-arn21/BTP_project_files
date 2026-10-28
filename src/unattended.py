@@ -77,6 +77,7 @@ def run_worker(settings):
             from dataclasses import asdict, replace
             import torch
             from .config import DataConfig, ModelConfig, ExperimentConfig, checkpoint_config_matches
+            from .continuation import resolve_continuation_checkpoints
             from .data import load_ptbxl
             from .kaggle import find_ptbxl_root, audit_metadata, prepare_smoke_data, require_cuda, smoke_forward_backward
             from .models.registry import create_model
@@ -139,13 +140,21 @@ def run_worker(settings):
         else:
             summary["checks"]["real_data_gpu_smoke"] = "skipped_by_configuration"
         enabled = [task for task, flag in (("superclass", "RUN_SUPERCLASS"), ("subclass", "RUN_SUBCLASS")) if settings[flag]]
+        initial_checkpoints = dict(settings.get("INITIAL_CHECKPOINTS", {}))
+        if enabled and settings.get("CONTINUATION_SESSION_ID"):
+            if any(initial_checkpoints.get(task) or settings["RESUME_RUN_DIRS"].get(task) for task in enabled):
+                raise ValueError("Select automatic CONTINUATION_SESSION_ID or explicit checkpoint/resume paths, not both")
+            initial_checkpoints.update(resolve_continuation_checkpoints(settings["CONTINUATION_SESSION_ID"],
+                settings.get("CONTINUATION_ARTIFACT_ROOT", ""), tasks=enabled,
+                expected_sha256=settings.get("CONTINUATION_CHECKPOINT_SHA256")))
+            summary["continuation_checkpoints"] = initial_checkpoints
         for task in ("superclass", "subclass"):
             summary["experiments"][task] = {"status": "pending" if task in enabled else "skipped_by_configuration"}
         save_summary(summary_path, summary)
         for task in enabled:
             override = settings[f"{task.upper()}_EPOCHS"]
             task_config = replace(config, task=task, epochs=override if override is not None else settings["FULL_EPOCHS"],
-                                  initial_checkpoint=settings.get("INITIAL_CHECKPOINTS", {}).get(task) or None)
+                                  initial_checkpoint=initial_checkpoints.get(task) or None)
             stage = f"{task} data cache / training / evaluation"
             summary["stage"] = stage
             summary["experiments"][task] = {"status": "running"}

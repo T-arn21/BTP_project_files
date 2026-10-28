@@ -26,6 +26,15 @@ early-stopping patience and optimizer settings. Then **Run All / Save & Run All*
 There are no intermediate prompts, source edits, cell reruns or kernel restarts.
 See [the execution guide](docs/kaggle_execution.md) for the exact sequence.
 
+The current notebook is prepared for **controlled FP32 weights-only continuation**
+from preserved session `20261028T063245Z_f710283f`: superclass epoch 3 and subclass
+epoch 5. Attach those outputs too; the notebook finds and hashes both last.pth
+files, checks provenance, and writes NEW diagnostic runs. See
+[checkpoint compatibility and exact next-run settings](docs/checkpoint_continuation.md).
+For deliberate fresh training, clear CONTINUATION_SESSION_ID and both checkpoint
+mappings in the first cell before Run All. Missing source artifacts never trigger
+an automatic fresh-training fallback.
+
 Git credentials never enter URLs, argv, Git configuration, saved settings or
 logs. A transient askpass script contains only environment lookup; the token
 is passed only to clone/fetch child environments and removed afterward.

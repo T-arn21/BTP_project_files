@@ -12,6 +12,8 @@ from .config import ExperimentConfig, checkpoint_config_matches
 from .data import load_ptbxl
 from .models.registry import create_model
 from .training import Trainer, make_pos_weight, load_checkpoint
+from .continuation import verify_initial_provenance
+from .cache import digest_file
 from .evaluation import predict, tune_thresholds, evaluate, export_evaluation, plot_results
 from .utils import seed_everything, write_json, environment_info, log_progress
 
@@ -82,11 +84,14 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     log_progress("Loading explicitly selected finite checkpoint weights into a NEW run; optimizer/scheduler/scaler reset")
                     try:
                         initial = load_checkpoint(cfg.initial_checkpoint, model, data.class_names, "cpu")
+                        verification = verify_initial_provenance(initial, cfg, metadata, data.class_names)
                     except ValueError as exc:
                         write_json(out / "checkpoint_failure.json", {"checkpoint": cfg.initial_checkpoint, "error": str(exc)})
                         raise
                     write_json(out / "initial_checkpoint.json", dict(path=cfg.initial_checkpoint,
                                epoch=initial.get("epoch"), mode="weights_only_new_optimizer",
+                               sha256=digest_file(cfg.initial_checkpoint), provenance_check=verification,
+                               restored_states=["model"], reset_states=["optimizer", "scheduler", "scaler", "rng", "early_stopping"],
                                original_training_config=initial.get("config"), new_training_config=asdict(cfg)))
                     del initial
                 if resume_from:
@@ -129,6 +134,8 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     _, table = evaluate(yt, pt, data.class_names, thresholds)
                 plot_results(history, table, out / "figures")
                 summary = dict(model_name=cfg.model_name, task=cfg.task, best_epoch=best_epoch,
+                               initialization="checkpoint_weights_only" if cfg.initial_checkpoint else "fresh",
+                               source_checkpoint=cfg.initial_checkpoint,
                                purpose=purpose, benchmark_result=not cfg.diagnostic,
                                train_records=len(data.splits["train"]), validation_records=len(data.splits["val"]),
                                total_parameters=sum(p.numel() for p in model.parameters()),

@@ -231,6 +231,7 @@ def test_final_pipeline_sequential_cpu_adapters(monkeypatch, synthetic_root, tmp
     session.mkdir()
     settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=str(synthetic_root), SESSION_DIR=str(session),
                     CACHE_DIR=str(tmp_path / "signals_cache"), FULL_EPOCHS=1, FULL_BATCH_SIZE=4,
+                    CONTINUATION_SESSION_ID="",
                     NORMALIZATION_SAMPLES=4, SMOKE_FIT_RECORDS=4, DIAGNOSTIC_MODE=diagnostic)
     assert run_worker(settings) == 0
     final = json.loads((session / "final_summary.json").read_text())
@@ -239,6 +240,25 @@ def test_final_pipeline_sequential_cpu_adapters(monkeypatch, synthetic_root, tmp
     for task, result in final["completed"].items():
         assert result["summary"]["benchmark_result"] is not diagnostic
         assert (Path(result["output_dir"]) / "test").exists() is not diagnostic
+    if not diagnostic:
+        # Attach the preserved full run read-only in spirit: all writes go to a new session.
+        import hashlib
+        checkpoints = [Path(v["output_dir"]) / "last.pth" for v in final["completed"].values()]
+        before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in checkpoints}
+        next_session = tmp_path / "controlled_continuation"
+        next_session.mkdir()
+        settings.update(SESSION_DIR=str(next_session), CONTINUATION_SESSION_ID=session.name,
+                        CONTINUATION_ARTIFACT_ROOT=str(tmp_path), CONTINUATION_CHECKPOINT_SHA256={}, DIAGNOSTIC_MODE=True)
+        assert run_worker(settings) == 0
+        continued = json.loads((next_session / "final_summary.json").read_text())
+        for result in continued["completed"].values():
+            folder = Path(result["output_dir"])
+            proof = json.loads((folder / "initial_checkpoint.json").read_text())
+            assert proof["provenance_check"]["status"] == "passed"
+            assert proof["reset_states"] == ["optimizer", "scheduler", "scaler", "rng", "early_stopping"]
+            assert result["summary"]["initialization"] == "checkpoint_weights_only"
+            assert not result["summary"]["benchmark_result"]
+        assert {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in checkpoints} == before
 
 
 def test_setup_skips_working_install_and_preserves_source_flags(monkeypatch, tmp_path):

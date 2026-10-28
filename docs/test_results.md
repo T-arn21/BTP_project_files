@@ -1,3 +1,44 @@
+# Controlled checkpoint continuation - 2026-10-28
+
+Read-only verification of the user's preserved real Kaggle checkpoints:
+superclass epoch 3 and subclass epoch 5. Checkpoint configs and metadata match
+adjacent config/manifests. Finite AdamW state and moment shapes restore on CPU
+for all 188 parameters; scheduler/scaler states roundtrip exactly. Original
+legacy configs pass the latest strict comparison; changing AMP to False fails
+that comparison as intended. Architecture source is unchanged and preprocessing
+Git source SHA256 matches the saved Kaggle identity. Original artifact hashes
+are preserved. No real Mamba GPU execution or full training was launched.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-controlled-continuation --tb=short
+```
+
+**75 passed, 3 skipped, 5 warnings in 25.15s.** Skips require actual CUDA Mamba;
+warnings are the existing scheduler transition notice. Full suite includes:
+
+- Reject changed model, class order, filtering, normalization, raw-file identity,
+  split order and missing checkpoint provenance.
+- Permit declared FP32/LR changes only as an explicit new weights-only run,
+  with exact original source identity/normalization and full or diagnostic-prefix
+  split comparison. Diagnostic cache containers are checked independently.
+- Resolve a unique preserved session/checkpoint, reject ambiguity and wrong SHA256.
+- Run the full worker on CPU synthetic model/setup/CUDA test doubles, then load
+  its full-run checkpoints into NEW diagnostic runs for both tasks. Verify
+  provenance/reset-state reports and unchanged source checkpoint hashes.
+- Existing NaN/Inf guards, exact resume, cache, splits, bootstrap/import isolation,
+  notebook sequential execution, metrics and export tests continue to pass.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap and Git whitespace
+checks pass. The final notebook selects the audited session and hashes, AMP off,
+LR 1e-4, batch 2, one epoch, two diagnostic batches, and per-batch logging. Actual
+Kaggle must recheck its live data/preprocessing identity, strict Mamba state load,
+compatible wheels, FP32 GPU backward and both checkpoint-initialized diagnostics.
+CPU restoration is not proof of CUDA compatibility or subsequent epoch stability.
+See checkpoint_continuation.md for precise settings, paths and failure policy.
+
+---
+
 # Numerical stability release — 2026-10-28
 
 Initial checkout was clean on dev/unified-ecg-pipeline; origin was fetched.

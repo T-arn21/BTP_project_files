@@ -22,6 +22,14 @@ The notebook is a self-contained entry point; it synchronizes source from GitHub
 
 ## Initial settings
 
+The next prepared run explicitly initializes from the audited failed-run
+checkpoints. Attach preserved session `20261028T063245Z_f710283f` in Kaggle
+inputs; CONTINUATION_SESSION_ID selects it, and the pinned checkpoint SHA256s
+must match. RESUME_RUN_DIRS and INITIAL_CHECKPOINTS stay empty for automatic
+session selection. See [checkpoint continuation](checkpoint_continuation.md)
+for verified compatibility, exact settings and output paths. To deliberately
+start fresh, clear CONTINUATION_SESSION_ID before Run All; no fallback occurs.
+
 ```python
 RUN_SUPERCLASS = True
 RUN_SUBCLASS = True

@@ -162,7 +162,12 @@ def test_explicit_weights_only_start_preserves_single_run(monkeypatch, data_conf
     monkeypatch.setattr(experiments, "load_ptbxl", lambda *a, **kw: original(*a, **kw, reader=__import__('conftest').synthetic_reader))
     monkeypatch.setattr(experiments, "create_model", lambda *a, **kw: model())
     path = tmp_path / "prior_best.pth"
-    torch.save({"model_state_dict": model().state_dict(), "class_names": ["NORM", "MI", "STTC", "CD", "HYP"], "epoch": 3}, path)
+    source = experiments.load_ptbxl(config=data_config)
+    source_config = ExperimentConfig(data=source.config)
+    source_metadata = dict(task="superclass", normalizer=source.normalizer.state_dict(), provenance=source.provenance,
+                           splits={k: list(map(int, ids)) for k, ids in source.splits.items()})
+    torch.save({"model_state_dict": model().state_dict(), "class_names": source.class_names, "epoch": 3,
+                "config": asdict(source_config), "metadata": source_metadata}, path)
     cfg = ExperimentConfig(data=data_config, epochs=1, batch_size=2, device="cpu", mixed_precision=False,
                            learning_rate=1e-4, numerical_stability_mode="conservative", initial_checkpoint=str(path),
                            diagnostic=True, diagnostic_batches=1, output_root=str(tmp_path / "new_runs"))

@@ -1,10 +1,19 @@
 # Numerical stability: verification and recovery
 
+Update: the failed-run artifacts have now been inspected read-only. Checkpoints
+are finite at superclass epoch 3 and subclass epoch 5, while failures occurred in
+epoch 4 training and epoch 6 validation. The next notebook defaults select these
+weights explicitly with strict provenance checks. See
+[controlled continuation](checkpoint_continuation.md) for current settings;
+the fresh-run diagnostic settings below apply only after clearing the automatic
+CONTINUATION_SESSION_ID selection.
+
 The user reports the prior Kaggle run passed synchronization, installation,
 metadata/patient audit, both smoke tests and caching, then both tasks failed
 with `RuntimeError: Nonfinite BCE loss` after substantial full-data GPU training.
 That is failed training, not a completed benchmark. No failed-run logs/checkpoints
-were supplied for this fix, so the originating numerical operation is **unverified**.
+were supplied when the guards were first implemented; subsequent inspection
+still cannot establish the originating numerical operation. It is **unverified**.
 
 ## Findings and scope
 
@@ -115,7 +124,8 @@ INITIAL_CHECKPOINTS["subclass"] = "/kaggle/working/restored/<subclass_run>/best.
 ```
 
 These are explicit NEW experiments: strict same-task/class-order/state-shape
-loading, finite weights required, fresh optimizer/scheduler/scaler, epoch count
+loading, matching source/preprocessing/normalization/split provenance and finite
+weights required, fresh optimizer/scheduler/scaler, epoch count
 restarts at one. `initial_checkpoint.json` records the source epoch and old/new
 settings. Scores must be labeled as initialized from that previous training;
 this is not a fresh-training benchmark or exact optimizer continuation.
