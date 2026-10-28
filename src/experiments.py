@@ -8,7 +8,7 @@ from time import perf_counter
 import sys
 import traceback
 import torch
-from .config import ExperimentConfig
+from .config import ExperimentConfig, checkpoint_config_matches
 from .data import load_ptbxl
 from .models.registry import create_model
 from .training import Trainer, make_pos_weight, load_checkpoint
@@ -78,10 +78,21 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 model = create_model(cfg.model_name, len(data.class_names), cfg.model)
                 loaders = data.loaders(cfg.batch_size)
                 pos_weight = make_pos_weight(data.labels.loc[data.splits["train"]].to_numpy(), cfg.pos_weight_max) if cfg.use_pos_weight else None
+                if cfg.initial_checkpoint and not resume_from:
+                    log_progress("Loading explicitly selected finite checkpoint weights into a NEW run; optimizer/scheduler/scaler reset")
+                    try:
+                        initial = load_checkpoint(cfg.initial_checkpoint, model, data.class_names, "cpu")
+                    except ValueError as exc:
+                        write_json(out / "checkpoint_failure.json", {"checkpoint": cfg.initial_checkpoint, "error": str(exc)})
+                        raise
+                    write_json(out / "initial_checkpoint.json", dict(path=cfg.initial_checkpoint,
+                               epoch=initial.get("epoch"), mode="weights_only_new_optimizer",
+                               original_training_config=initial.get("config"), new_training_config=asdict(cfg)))
+                    del initial
                 if resume_from:
                     previous = torch.load(resume_from, map_location="cpu", weights_only=True)
-                    if previous.get("config") != asdict(cfg) or previous.get("metadata") != metadata or previous.get("class_names") != data.class_names:
-                        raise ValueError("Resume requires identical config, classes and preprocessing/split provenance")
+                    if not checkpoint_config_matches(previous.get("config", {}), cfg) or previous.get("metadata") != metadata or previous.get("class_names") != data.class_names:
+                        raise ValueError("Exact resume requires identical training settings, classes and preprocessing. Use initial_checkpoint for an explicit NEW weights-only run when changing AMP/LR")
                     if not (out / "best.pth").is_file():
                         raise ValueError("Resume requires the original run directory and best.pth")
                     del previous

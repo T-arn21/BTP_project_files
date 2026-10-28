@@ -14,6 +14,7 @@ from .config import DataConfig
 from .data import PTBXLDataset, build_official_splits, read_waveform
 from .labels import build_labels, class_statistics
 from .signal import SignalNormalizer
+from .numerics import fp32_bce, named_finite, optimizer_tensors
 
 
 def find_ptbxl_root(explicit=None, search_roots=("/kaggle/input",)):
@@ -147,7 +148,7 @@ def cached_smoke_data(data, batch_size=2):
                 purpose="smoke_only_no_test_evaluation")
 
 
-def smoke_forward_backward(model, batch, *, device="cuda", mixed_precision=True, require_gpu=True):
+def smoke_forward_backward(model, batch, *, device="cuda", mixed_precision=True, require_gpu=True, learning_rate=3e-4):
     """One real optimization step followed by one validation forward, no metrics tuning.
 
     Caller supplies the preserved Mamba model. CPU mode exists only to test this
@@ -160,14 +161,18 @@ def smoke_forward_backward(model, batch, *, device="cuda", mixed_precision=True,
     model.to(device).train()
     x, y, _ = batch["batches"]["train"]
     x, y = x.to(device), y.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    if not torch.isfinite(x).all() or not torch.isfinite(y).all() or not ((y == 0) | (y == 1)).all():
+        raise RuntimeError("Invalid smoke inputs/targets; no optimizer step performed")
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     scaler = torch.amp.GradScaler("cuda", enabled=mixed_precision and torch.device(device).type == "cuda")
     optimizer.zero_grad(set_to_none=True)
     with torch.amp.autocast(torch.device(device).type, enabled=scaler.is_enabled()):
         logits = model(x)
         if logits.shape != y.shape:
             raise ValueError(f"Logits {logits.shape} do not match targets {y.shape}")
-        loss = torch.nn.functional.binary_cross_entropy_with_logits(logits, y)
+    if not torch.isfinite(logits).all():
+        raise RuntimeError("Nonfinite smoke logits before FP32 BCE")
+    loss = fp32_bce(torch.nn.BCEWithLogitsLoss(), logits, y)
     if not torch.isfinite(loss):
         raise RuntimeError("Nonfinite smoke BCE loss")
     scaler.scale(loss).backward()
@@ -177,18 +182,20 @@ def smoke_forward_backward(model, batch, *, device="cuda", mixed_precision=True,
         raise RuntimeError("Missing or nonfinite smoke gradients")
     if not any(torch.count_nonzero(g).item() for g in grads):
         raise RuntimeError("All smoke gradients are zero")
-    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0, error_if_nonfinite=True)
     if not torch.isfinite(grad_norm):
         raise RuntimeError("Nonfinite smoke gradient norm")
     scaler.step(optimizer)
     scaler.update()
+    if not named_finite(list(model.named_parameters())) or not named_finite(optimizer_tensors(model, optimizer)):
+        raise RuntimeError("Nonfinite smoke model/optimizer state after update")
     model.eval()
     xv, yv, _ = batch["batches"]["val"]
     with torch.no_grad(), torch.amp.autocast(torch.device(device).type, enabled=scaler.is_enabled()):
         val_logits = model(xv.to(device))
         if val_logits.shape != yv.shape or not torch.isfinite(val_logits).all():
             raise RuntimeError("Invalid validation smoke logits")
-        val_loss = torch.nn.functional.binary_cross_entropy_with_logits(val_logits.float(), yv.to(device))
+    val_loss = fp32_bce(torch.nn.BCEWithLogitsLoss(), val_logits, yv.to(device))
     if not torch.isfinite(val_loss):
         raise RuntimeError("Nonfinite validation smoke loss")
     if torch.device(device).type == "cuda":
@@ -198,6 +205,7 @@ def smoke_forward_backward(model, batch, *, device="cuda", mixed_precision=True,
             "train_bce": loss.item(), "validation_bce": val_loss.item(),
             "grad_norm_before_clip": grad_norm.item(), "finite_gradients": True,
             "optimizer_steps": 1, "amp_enabled": scaler.is_enabled(),
+            "learning_rate": learning_rate, "loss_computation": "float32_autocast_disabled",
             "parameters": sum(p.numel() for p in model.parameters()),
             "normalization_record_ids": batch["normalization_record_ids"],
             "record_ids": batch["record_ids"], "normalizer": batch["normalizer"]}

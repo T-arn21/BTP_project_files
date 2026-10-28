@@ -1,5 +1,7 @@
 """Reference values transcribed from training notebook cells 7 and 17."""
 from dataclasses import dataclass, field
+from dataclasses import asdict
+import math
 
 
 @dataclass
@@ -58,6 +60,8 @@ class ExperimentConfig:
     pos_weight_max: float = 8.0
     grad_clip_norm: float = 1.0
     mixed_precision: bool = True
+    numerical_stability_mode: str = "strict"  # conservative also requires FP32 / lr <= 1e-4
+    initial_checkpoint: str | None = None  # explicit weights-only start; not exact optimizer resume
     patience: int = 15
     min_delta: float = 1e-4
     seed: int = 42
@@ -78,3 +82,21 @@ class ExperimentConfig:
             raise ValueError("label_smoothing must be in [0, 1)")
         if self.diagnostic_batches < 1 or self.log_every_batches < 1:
             raise ValueError("diagnostic_batches and log_every_batches must be positive")
+        if self.numerical_stability_mode not in {"strict", "conservative"}:
+            raise ValueError("numerical_stability_mode must be strict or conservative")
+        if not math.isfinite(self.learning_rate) or self.learning_rate <= 0:
+            raise ValueError("learning_rate must be finite and positive")
+        if not math.isfinite(self.grad_clip_norm) or self.grad_clip_norm <= 0:
+            raise ValueError("grad_clip_norm must be finite and positive")
+        if not math.isfinite(self.pos_weight_max) or self.pos_weight_max <= 0:
+            raise ValueError("pos_weight_max must be finite and positive")
+        if self.numerical_stability_mode == "conservative" and (self.mixed_precision or self.learning_rate > 1e-4):
+            raise ValueError("Conservative mode requires mixed_precision=False and learning_rate <= 1e-4; settings are never silently changed")
+
+
+def checkpoint_config_matches(saved, current):
+    """Add only new-field legacy defaults; do not relax training/data comparisons."""
+    saved = dict(saved)
+    saved.setdefault("numerical_stability_mode", "strict")
+    saved.setdefault("initial_checkpoint", None)
+    return saved == (asdict(current) if isinstance(current, ExperimentConfig) else current)

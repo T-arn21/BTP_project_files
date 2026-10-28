@@ -76,7 +76,7 @@ def run_worker(settings):
             import gc
             from dataclasses import asdict, replace
             import torch
-            from .config import DataConfig, ModelConfig, ExperimentConfig
+            from .config import DataConfig, ModelConfig, ExperimentConfig, checkpoint_config_matches
             from .data import load_ptbxl
             from .kaggle import find_ptbxl_root, audit_metadata, prepare_smoke_data, require_cuda, smoke_forward_backward
             from .models.registry import create_model
@@ -108,6 +108,7 @@ def run_worker(settings):
                 cache_signals=settings["CACHE_SIGNALS"], apply_filter=settings["APPLY_FILTER"], augment=settings["AUGMENT"])
             config = ExperimentConfig(epochs=settings["FULL_EPOCHS"], batch_size=settings["FULL_BATCH_SIZE"],
                 device="cuda", seed=settings["SEED"], mixed_precision=settings["MIXED_PRECISION"],
+                numerical_stability_mode=settings.get("NUMERICAL_STABILITY_MODE", "strict"),
                 model=ModelConfig(**settings["MODEL_SETTINGS"]), data=data_config,
                 diagnostic=settings["DIAGNOSTIC_MODE"], diagnostic_batches=settings["DIAGNOSTIC_BATCHES"],
                 log_every_batches=settings["LOG_EVERY_BATCHES"], patience=settings["EARLY_STOPPING_PATIENCE"],
@@ -127,7 +128,8 @@ def run_worker(settings):
                                                    batch_size=settings["SMOKE_BATCH_SIZE"], config=data_config)
                         log_progress(f"Initializing preserved {task} Mamba for smoke")
                         model = create_model("mamba", len(batch["class_names"]), config.model)
-                        report = smoke_forward_backward(model, batch, device="cuda", mixed_precision=config.mixed_precision)
+                        report = smoke_forward_backward(model, batch, device="cuda", mixed_precision=config.mixed_precision,
+                                                        learning_rate=config.learning_rate)
                         write_json(session / f"{task}_smoke.json", report)
                         passed(f"{task}_gpu_smoke")
                     finally:
@@ -142,7 +144,8 @@ def run_worker(settings):
         save_summary(summary_path, summary)
         for task in enabled:
             override = settings[f"{task.upper()}_EPOCHS"]
-            task_config = replace(config, task=task, epochs=override if override is not None else settings["FULL_EPOCHS"])
+            task_config = replace(config, task=task, epochs=override if override is not None else settings["FULL_EPOCHS"],
+                                  initial_checkpoint=settings.get("INITIAL_CHECKPOINTS", {}).get(task) or None)
             stage = f"{task} data cache / training / evaluation"
             summary["stage"] = stage
             summary["experiments"][task] = {"status": "running"}
@@ -154,12 +157,15 @@ def run_worker(settings):
                                "configuration": data.provenance["normalization_configuration"]})
                     run_dir = settings["RESUME_RUN_DIRS"][task] or None
                     if run_dir:
+                        if task_config.initial_checkpoint:
+                            raise ValueError("Choose RESUME_RUN_DIRS or INITIAL_CHECKPOINTS, not both for the same task")
                         saved = json.loads((Path(run_dir) / "config.json").read_text())
                         candidate = asdict(task_config)
                         candidate["output_root"] = saved["output_root"]
-                        if candidate != saved:
-                            raise ValueError("Resume configuration differs; match original budget/data/model settings")
-                        task_config = replace(task_config, output_root=saved["output_root"])
+                        candidate["initial_checkpoint"] = saved.get("initial_checkpoint")
+                        if not checkpoint_config_matches(saved, candidate):
+                            raise ValueError("Exact resume requires original settings. To change AMP/LR, use INITIAL_CHECKPOINTS for a NEW weights-only run")
+                        task_config = replace(task_config, output_root=saved["output_root"], initial_checkpoint=saved.get("initial_checkpoint"))
                     result = run_experiment(config=task_config, prepared_data=data, run_dir=run_dir,
                         resume_from=str(Path(run_dir) / "last.pth") if run_dir else None)
                     directory = Path(result["output_dir"])

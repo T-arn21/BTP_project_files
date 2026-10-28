@@ -27,10 +27,14 @@ RUN_SUPERCLASS = True
 RUN_SUBCLASS = True
 RUN_SMOKE = True
 RUN_METADATA_AUDIT = True
-FULL_EPOCHS = 10
-FULL_BATCH_SIZE = 8
+FULL_EPOCHS = 1
+FULL_BATCH_SIZE = 2
 EARLY_STOPPING_PATIENCE = 15
-DIAGNOSTIC_MODE = False
+DIAGNOSTIC_MODE = True
+DIAGNOSTIC_BATCHES = 2
+NUMERICAL_STABILITY_MODE = "conservative"
+MIXED_PRECISION = False
+# Existing OPTIMIZER_SETTINGS: learning_rate=1e-4; other reference settings retained.
 NUM_WORKERS = 0
 NORMALIZATION_MODE = "sampled"
 NORMALIZATION_SAMPLES = 1000
@@ -39,7 +43,7 @@ NORMALIZATION_SAMPLES = 1000
 The first cell also exposes per-task epoch overrides, optimizer parameters,
 normalization seed, smoke budget, source-build/wheel options, filters,
 augmentation and resume paths. Use task flags to skip one model. The reference
-384-wide/eight-block architecture is preserved. Batch 8 is an explicit memory
+384-wide/eight-block architecture is preserved. Batch 2 is an explicit memory
 adjustment from reference batch 64, not a reduction of the training dataset.
 
 Default source checkout is `/kaggle/working/BTP_project_files`, branch
@@ -119,6 +123,15 @@ seed and preprocessing. Resume restores optimizer/scheduler/RNG state and reject
 incompatible settings. CPU zero-worker continuation is tested; fused CUDA kernels
 and multi-worker restarts need not be bitwise reproducible.
 
+To change AMP/LR after a failure, leave RESUME_RUN_DIRS empty and set the task's
+INITIAL_CHECKPOINTS entry to a saved finite same-task best.pth. This explicitly
+starts a new run with a fresh optimizer/scheduler/scaler, recording both old
+and new settings. Exact resume and weights-only initialization cannot be combined
+for a task. Legacy checkpoints without the two new stability/initialization config
+fields remain eligible for exact resume with their original settings (strict mode);
+nonfinite model weights or restored optimizer state are rejected. See
+[numerical stability](numerical_stability.md) before resuming an unstable run.
+
 ## Diagnostic versus benchmark runs
 
 For a short end-to-end plumbing check, set DIAGNOSTIC_MODE=True,
@@ -162,6 +175,8 @@ Benchmark folders additionally have validation thresholds and validation/test/
 fixed-.5 metrics and prediction CSVs. Diagnostic outputs cannot be labeled test
 benchmarks. The notebook prints the concise execution summary even on bootstrap
 or setup failure; completed checks/tasks are not lost when another stage fails.
+Numerical guards also write numerical_settings.json and, on failure,
+numerical_failure.json plus diagnostics/epoch_*_<phase>.json in the task folder.
 
 ## Validation limits
 
@@ -170,4 +185,7 @@ secrets, worker/import isolation, summaries, atomic writes and CPU synthetic
 training/evaluation. They do not authenticate to Kaggle or execute real Mamba
 GPU training. Actual secret access, GitHub clone inside Kaggle, pinned CUDA build,
 real cache throughput/VRAM/AMP and complete superclass/subclass benchmarks must
-still be executed there. No new GPU classification results are claimed here.
+still be executed there. The user reports synchronization, installation, audit,
+both smoke tests, caching and substantial full-data GPU training passed on the
+prior run, before both experiments failed with nonfinite BCE. The stability fix
+has local synthetic coverage; corrected GPU training remains unexecuted here.

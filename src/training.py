@@ -11,6 +11,9 @@ import os
 from torch import nn
 from .evaluation import evaluate
 from .utils import log_progress
+from .utils import write_json
+from .config import checkpoint_config_matches
+from .numerics import fp32_bce, tensor_finite, named_finite, optimizer_tensors, failure_report
 
 
 def atomic_checkpoint(state, path):
@@ -23,6 +26,10 @@ def atomic_checkpoint(state, path):
 
 def make_pos_weight(labels, maximum=8.0):
     labels = np.asarray(labels)
+    if labels.ndim != 2 or not len(labels) or not np.isin(labels, [0, 1]).all():
+        raise ValueError("Class weights require nonempty binary finite training targets")
+    if not math.isfinite(maximum) or maximum <= 0:
+        raise ValueError("Positive-class weight cap must be finite and positive")
     positives = labels.sum(axis=0)
     # No positives: no useful positive loss term, retain finite neutral weight.
     ratio = np.divide(len(labels) - positives, positives, out=np.ones_like(positives, dtype=float), where=positives > 0)
@@ -38,6 +45,10 @@ def load_checkpoint(path, model, class_names=None, device="cpu"):
     state = torch.load(path, map_location=device, weights_only=True)
     if class_names is not None and state.get("class_names") != list(class_names):
         raise ValueError("Checkpoint class order/task mismatch (or missing vocabulary)")
+    bad = [name for name, value in state["model_state_dict"].items()
+           if torch.is_tensor(value) and not tensor_finite(value)]
+    if bad:
+        raise ValueError(f"Checkpoint contains nonfinite model tensors: {bad}")
     model.load_state_dict(state["model_state_dict"], strict=True)
     return state
 
@@ -52,7 +63,7 @@ class Trainer:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.metadata = metadata or {}
-        self.criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight.to(self.device) if pos_weight is not None else None)
+        self.criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight.to(self.device).float() if pos_weight is not None else None)
         self.optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
         warmup = min(max(config.warmup_epochs, 0), config.epochs - 1)
         if warmup:
@@ -63,39 +74,91 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=config.min_lr)
         self.scaler = torch.amp.GradScaler("cuda", enabled=config.mixed_precision and self.device.type == "cuda")
         self.history, self.best_score, self.counter = [], -math.inf, 0
+        self.current_epoch, self.batch_index, self.stage = 0, 0, "initialization"
+        self._batch = dict(record_ids=[], inputs=None, targets=None, loss_targets=None, logits=None, loss=None)
+        weights = self.criterion.pos_weight
+        if weights is not None and (weights.shape != (len(self.class_names),) or not tensor_finite(weights) or (weights < 0).any()):
+            self._fail("Invalid positive-class weights", "class_weights")
+        self._check_state("initialization")
+        write_json(self.directory / "numerical_settings.json", dict(
+            numerical_stability_mode=config.numerical_stability_mode, mixed_precision_requested=config.mixed_precision,
+            amp_enabled=self.scaler.is_enabled(), learning_rate=config.learning_rate,
+            loss_computation="float32_autocast_disabled", grad_clip_norm=config.grad_clip_norm,
+            error_if_nonfinite=True, optimizer="AdamW", optimizer_eps=self.optimizer.defaults["eps"],
+            pos_weight=weights.detach().cpu().tolist() if weights is not None else None,
+            label_smoothing=config.label_smoothing, invalid_batch_policy="abort_no_skip_no_retry"))
         log_progress(f"Trainer ready on {self.device} in {perf_counter() - init_start:.2f}s")
+
+    def _fail(self, reason, phase, detail=None):
+        failure_report(self.directory, reason=reason, phase=phase, epoch=self.current_epoch,
+                       batch_index=self.batch_index, stage=self.stage, **self._batch,
+                       model=self.model, optimizer=self.optimizer, scaler=self.scaler, config=self.config,
+                       pos_weight=self.criterion.pos_weight, normalization=self.metadata.get("normalizer"), detail=detail)
+
+    def _check_state(self, phase):
+        if not named_finite(list(self.model.named_parameters())):
+            self._fail("Nonfinite model parameters", phase)
+        if not named_finite(optimizer_tensors(self.model, self.optimizer)):
+            self._fail("Nonfinite optimizer state", phase)
+        if not math.isfinite(self.scaler.get_scale()) or self.scaler.get_scale() <= 0:
+            self._fail("Invalid AMP scaler scale", phase)
+        if any(not math.isfinite(g["lr"]) or g["lr"] <= 0 for g in self.optimizer.param_groups):
+            self._fail("Invalid optimizer learning rate", phase)
 
     def _epoch(self, loader, train):
         self.model.train(train)
         total, count, ys, ps = 0.0, 0, [], []
         stage = "train" if train else "validation"
+        self.stage, self.batch_index = stage, 0
+        self._batch = dict(record_ids=[], inputs=None, targets=None, loss_targets=None, logits=None, loss=None)
+        self._check_state("epoch_start")
         epoch_start, last_log = perf_counter(), perf_counter()
         wait_start, data_wait = perf_counter(), 0.0
         log_progress(f"{stage}: waiting for first batch ({len(loader)} batches, workers={loader.num_workers})")
-        for batch_index, (x, y, _) in enumerate(loader, 1):
+        for batch_index, (x, y, ecg_ids) in enumerate(loader, 1):
+            self.batch_index = batch_index
+            if train:
+                self.optimizer.zero_grad(set_to_none=True)
             batch_wait = perf_counter() - wait_start
             data_wait += batch_wait
             if batch_index == 1:
                 log_progress(f"{stage}: first batch loaded in {batch_wait:.3f}s; shape={tuple(x.shape)}; starting forward{'/backward' if train else ''}")
-            x, y = x.to(self.device), y.to(self.device).float()
+            x, y = x.to(self.device).float(), y.to(self.device).float()
             if self.config.data.layout == "time_first":
                 x = x.transpose(1, 2).contiguous()
             targets = y * (1 - self.config.label_smoothing) + self.config.label_smoothing / 2 if train else y
+            self._batch = dict(record_ids=ecg_ids, inputs=x, targets=y, loss_targets=targets, logits=None, loss=None)
+            if not tensor_finite(x):
+                self._fail("Nonfinite ECG inputs", "inputs")
+            if not tensor_finite(y) or not tensor_finite(targets):
+                self._fail("Nonfinite targets", "targets")
+            if not bool(((y == 0) | (y == 1)).all().item()):
+                self._fail("Nonbinary multilabel targets", "targets")
             with torch.set_grad_enabled(train):
                 with torch.amp.autocast(self.device.type, enabled=self.scaler.is_enabled()):
                     logits = self.model(x)
-                    if logits.shape != y.shape:
-                        raise ValueError("Expected logits matching multilabel target shape")
-                    loss = self.criterion(logits, targets)
-                if not torch.isfinite(loss):
-                    raise RuntimeError("Nonfinite BCE loss")
+                self._batch["logits"] = logits
+                if not tensor_finite(logits):
+                    self._fail("Nonfinite model logits", "logits")
+                if logits.shape != y.shape:
+                    raise ValueError("Expected logits matching multilabel target shape")
+                loss = fp32_bce(self.criterion, logits, targets)
+                self._batch["loss"] = loss
+                if not tensor_finite(loss):
+                    self._fail("Nonfinite BCE loss", "loss")
                 if train:
-                    self.optimizer.zero_grad(set_to_none=True)
                     self.scaler.scale(loss).backward()
                     self.scaler.unscale_(self.optimizer)
-                    nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip_norm)
+                    gradients = [(name, p.grad) for name, p in self.model.named_parameters() if p.grad is not None]
+                    if not gradients or not named_finite(gradients):
+                        self._fail("Nonfinite or missing gradients", "gradients")
+                    try:
+                        nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip_norm, error_if_nonfinite=True)
+                    except RuntimeError as exc:
+                        self._fail("Nonfinite gradient norm", "gradient_clipping", detail=str(exc))
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
+                    self._check_state("post_optimizer")
 
             if batch_index == 1 or batch_index % self.config.log_every_batches == 0 or perf_counter() - last_log >= 15 or batch_index == len(loader):
                 if self.device.type == "cuda":
@@ -105,7 +168,8 @@ class Trainer:
             total += loss.item() * len(y)
             count += len(y)
             ys.append(y.detach().cpu().numpy())
-            ps.append(logits.detach().sigmoid().float().cpu().numpy())
+            ps.append(logits.detach().float().sigmoid().cpu().numpy())
+            self._batch = dict(record_ids=[], inputs=None, targets=None, loss_targets=None, logits=None, loss=None)
             wait_start = perf_counter()
         if not count:
             raise ValueError("Training and validation loaders must be nonempty")
@@ -118,11 +182,12 @@ class Trainer:
         start_epoch = 1
         if resume_from:
             state = load_checkpoint(resume_from, self.model, self.class_names, self.device)
-            if state["config"] != asdict(self.config) or state["metadata"] != self.metadata:
+            if not checkpoint_config_matches(state["config"], self.config) or state["metadata"] != self.metadata:
                 raise ValueError("Resume requires identical config, preprocessing and split provenance")
             self.optimizer.load_state_dict(state["optimizer_state_dict"])
             self.scheduler.load_state_dict(state["scheduler_state_dict"])
             self.scaler.load_state_dict(state["scaler_state_dict"])
+            self._check_state("checkpoint_restore")
             self.best_score, self.counter, self.history = state["best_score"], state["counter"], state["history"]
             start_epoch = state["epoch"] + 1
             if not (self.directory / "best.pth").exists():
@@ -140,6 +205,7 @@ class Trainer:
         if self.counter >= self.config.patience:
             return pd.DataFrame(self.history)
         for epoch in range(start_epoch, self.config.epochs + 1):
+            self.current_epoch = epoch
             start = perf_counter()
             log_progress(f"Epoch {epoch}/{self.config.epochs} starting")
             train_loss, train_auc = self._epoch(train_loader, True)

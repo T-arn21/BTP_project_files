@@ -1,3 +1,51 @@
+# Numerical stability release — 2026-10-28
+
+Initial checkout was clean on dev/unified-ecg-pipeline; origin was fetched.
+The user's prior real Kaggle run reportedly passed sync/install/audit, both
+smokes and cache, then both tasks failed nonfinite BCE during substantial
+full-data training. No failed-run artifacts were available for root-cause
+confirmation. Corrected GPU training has not been executed here.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-stability-final --tb=short
+```
+
+**66 passed, 3 skipped, 5 warnings in 24.08s.** The three skips require real
+CUDA Mamba; warnings are the existing SequentialLR transition notice. Runtime:
+Python 3.12.7, Torch 2.7.1+cpu, isolated WFDB 4.1.2. Windows disposable local Git
+integration tests ran outside the sandbox for MSYS transport; no fake-secret
+test contacted GitHub.
+
+New focused coverage (17 cases) deliberately injects NaN/Inf inputs, targets
+and logits, finite-logit/nonfinite-loss failures, nonfinite gradients, finite
+gradient elements with overflowed norm, and corrupt parameter/optimizer updates.
+It verifies epoch/batch/stage, ECG IDs, finite flags/ranges, AMP/LR context,
+JSON persistence, rejection before unsafe updates, and no invalid checkpoints.
+A CPU autocast spy verifies BCE operands are FP32 with autocast disabled.
+Validation-batch diagnostics, conservative-mode constraints, invalid class
+weight rejection, nonfinite checkpoint rejection, legacy exact restore and
+corrupt restored optimizer rejection pass. Explicit same-task weights-only
+initialization runs a complete synthetic diagnostic with recorded provenance.
+
+Existing sequential notebook/controller/worker tests still pass for disabled,
+diagnostic and full modes using explicit CPU model/CUDA/setup test doubles.
+The embedded bootstrap is unchanged and matches its tested module. Existing
+cache, patient split, normalization, checkpoint interruption, deterministic
+resume and export checks pass. Compileall, notebook schema/syntax and Git
+whitespace checks pass. The Mamba architecture, signal/cache preprocessing,
+04, the three original notebooks and the user's attempt notebook are unchanged.
+
+The new notebook defaults are conservative numerical verification: AMP off,
+LR 1e-4, batch 2, one epoch, two diagnostic batches for each task. A short
+synthetic or real-data smoke pass cannot establish later full-data stability.
+Kaggle still must execute corrected real Mamba FP32 backward, both diagnostics,
+then full-data epochs/evaluation. No new GPU scores or benchmark completion
+are claimed. See numerical_stability.md for safe Run All progression and
+checkpoint/wheel reuse, and the verified-versus-suspected cause distinction.
+
+---
+
 # Unattended Kaggle entry-point release — 2026-10-28
 
 ```powershell

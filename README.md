@@ -39,7 +39,8 @@ Source, dependencies, CUDA, patient audit and short real-data GPU smoke are
 verified before the full deterministic waveform cache is prepared. The two
 full experiments then run sequentially with all requested training records.
 
-Defaults enable both tasks, smoke and audit, with 10 epochs, batch 8, workers 0,
+Defaults now verify numerical stability: both tasks, smoke and audit, **FP32
+(AMP off), LR 1e-4, one epoch, batch 2, DIAGNOSTIC_MODE=True**, workers 0,
 and sampled 1000-training-record normalization. DIAGNOSTIC_MODE=True selects
 explicitly limited train/validation-only diagnostics, not benchmark completion.
 Early stopping and full budgets are first-cell settings. Every stage has
@@ -138,9 +139,17 @@ See the guide for offline wheels, source fallback and failure handling.
 Reference optimization remains AdamW 3e-4, weight decay 5e-4, positive BCE
 weights capped at 8, training-only smoothing .05, clipping 1, optional AMP,
 three warmup epochs and cosine floor 1e-6, with validation-AUROC early stopping.
-Reference batch was 64; final default 8 is an explicit memory adjustment.
+Reference batch was 64; verification default 2 is an explicit memory adjustment.
 Reduce batch size on OOM and record the change; do not silently shrink Mamba.
 Separate task epoch overrides are available in the first notebook cell.
+
+BCE operands and loss are explicitly float32 outside autocast in training,
+validation and smoke. Both numerical modes reject invalid inputs, targets,
+logits, loss, gradients and optimizer/model state. Gradient clipping rejects
+nonfinite norms. Failures save ECG IDs, epoch/batch, ranges and AMP/LR/state
+diagnostics under the experiment folder; no batch is skipped or retried.
+See [numerical stability and recovery](docs/numerical_stability.md) for the
+safe first run, confirmed findings versus suspected causes, and checkpoint reuse.
 
 Each benchmark run exports best/last checkpoints, config/environment/data
 manifest, class counts, history, loss/confusion figures, validation thresholds,
