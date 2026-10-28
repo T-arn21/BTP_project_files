@@ -95,13 +95,15 @@ def run_worker(settings):
         save_summary(summary_path, summary)
         with stage_log(session, stage):
             root = find_ptbxl_root(settings["DATASET_ROOT"] or None)
-            audit = audit_metadata(root, dataset_version=settings["DATASET_VERSION"])
+            supervised_requested = any(settings[k] for k in ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT"))
+            audit = audit_metadata(root, dataset_version=settings["DATASET_VERSION"]) if supervised_requested else None
             summary.update(dataset_root=str(root), declared_dataset_version=settings["DATASET_VERSION"])
             if settings["RUN_METADATA_AUDIT"]:
                 write_json(session / "metadata_audit.json", audit["summary"])
                 for task, table in audit["statistics"].items():
                     table.to_csv(session / f"{task}_class_statistics.csv", index=False)
-            passed("metadata_patient_audit")  # Integrity is never optional for training.
+            if audit is not None:
+                passed("metadata_patient_audit")  # SSL audits folds separately without labels.
             data_config = DataConfig(data_dir=str(root), sampling_rate=100, duration=10,
                 dataset_version=settings["DATASET_VERSION"], num_workers=settings["NUM_WORKERS"],
                 normalization_mode=settings["NORMALIZATION_MODE"], normalization_samples=settings["NORMALIZATION_SAMPLES"],
@@ -139,6 +141,38 @@ def run_worker(settings):
                         torch.cuda.empty_cache()
         else:
             summary["checks"]["real_data_gpu_smoke"] = "skipped_by_configuration"
+        ssl_smoke = settings.get("RUN_SSL_SMOKE", False)
+        ssl_full = settings.get("RUN_SSL_PRETRAIN", False)
+        for key, requested in (("ssl_smoke", ssl_smoke), ("ssl_pretraining", ssl_full)):
+            summary["experiments"][key] = {"status": "pending" if requested else "disabled_by_configuration"}
+        if ssl_full and not ssl_smoke:
+            summary["experiments"]["ssl_pretraining"] = {"status": "blocked_missing_smoke"}
+            raise ValueError("RUN_SSL_PRETRAIN requires RUN_SSL_SMOKE=True in the same execution; full SSL never starts without a passed smoke")
+        if ssl_smoke:
+            from .ssl import SSLConfig, run_ssl
+            ssl_config = SSLConfig(data=replace(data_config, cache_dir=str(Path(data_config.cache_dir) / "ssl")),
+                                   model=config.model, seed=config.seed, device="cuda", **settings.get("SSL_SETTINGS", {}))
+            for key, smoke in (("ssl_smoke", True), ("ssl_pretraining", False)):
+                if not smoke and not ssl_full:
+                    continue
+                stage = key
+                summary["stage"] = stage
+                summary["experiments"][key] = {"status": "running"}
+                save_summary(summary_path, summary)
+                try:
+                    with stage_log(session, stage):
+                        result = run_ssl(ssl_config, session / "ssl", smoke=smoke)
+                    summary["completed"][key] = result
+                    summary["experiments"][key] = result
+                    passed("ssl_gpu_smoke" if smoke else "ssl_pretraining_exports")
+                except Exception as exc:
+                    summary["experiments"][key] = {"status": "failed", "error": str(exc)}
+                    if smoke and ssl_full:
+                        summary["experiments"]["ssl_pretraining"] = {"status": "blocked_by_smoke_failure"}
+                    raise
+                finally:
+                    gc.collect()
+                    torch.cuda.empty_cache()
         enabled = [task for task, flag in (("superclass", "RUN_SUPERCLASS"), ("subclass", "RUN_SUBCLASS")) if settings[flag]]
         initial_checkpoints = dict(settings.get("INITIAL_CHECKPOINTS", {}))
         if enabled and settings.get("CONTINUATION_SESSION_ID"):

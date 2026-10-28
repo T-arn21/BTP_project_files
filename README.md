@@ -1,8 +1,10 @@
 # Self-Supervised Learning for ECG Classification Using Mamba
 
-The current milestone is a reliable **supervised Mamba** pipeline on PTB-XL.
+The repository supports supervised Mamba on PTB-XL and **Milestone 2 masked
+waveform reconstruction SSL**, using the same encoder and preprocessing.
 Use **`05_btp_kaggle_final.ipynb`** as the primary Kaggle execution notebook.
-No extra architectures or SSL pretraining are implemented.
+No extra encoder architectures are added. SSL pretraining is opt-in and full
+pretraining has not been executed here. See [SSL settings and outputs](docs/ssl_pretraining.md).
 
 - `04_btp_experiments.ipynb`: development reference, preserved.
 - `ecg-xl-btp.ipynb`: user's actual Kaggle attempt code, preserved. It has no
@@ -201,7 +203,9 @@ See [test results](docs/test_results.md).
 Core modules: `config`, `data`, `cache`, `signal`, `augmentation`, `models/mamba`,
 `training`, `evaluation`, `experiments`, `kaggle`, `kaggle_setup`, secure standard-library
 `bootstrap`, and the `unattended` controller/worker. Future architectures may use the registry; none are added now.
-`MambaEncoder`/`forward_features` expose the encoder for future SSL only.
+`MambaEncoder.forward_tokens` exposes temporal backbone features for the separate
+`ssl` / `ssl_data` masked-reconstruction path; pooled `forward_features` remains
+available for supervised classification. Both SSL flags are disabled by default.
 
 ## References
 

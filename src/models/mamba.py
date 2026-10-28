@@ -174,6 +174,13 @@ class MambaEncoder(nn.Module):
 
         self.feature_dim = head_in_dim
 
+    def forward_tokens(self, x: torch.Tensor) -> torch.Tensor:
+        """Existing backbone before pooling, shape (batch, time, embed_dim)."""
+        x = self.input_proj(x.transpose(1, 2))
+        for block in self.blocks:
+            x = block(x)
+        return self.final_norm(x)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Encode a batch of ECG signals, including the reference pooling dropout.
 
@@ -188,11 +195,7 @@ class MambaEncoder(nn.Module):
         torch.Tensor
             Features of shape `(batch, feature_dim)`, with no classification head.
         """
-        x = x.transpose(1, 2)          # (B, N_LEADS, T) -> (B, T, N_LEADS)
-        x = self.input_proj(x)         # -> (B, T, embed_dim)
-        for block in self.blocks:
-            x = block(x)
-        x = self.final_norm(x)
+        x = self.forward_tokens(x)
 
         mean_pooled = x.mean(dim=1)    # (B, embed_dim)
         if self.pooling == "mean_attention":

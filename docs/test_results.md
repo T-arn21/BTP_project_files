@@ -1,3 +1,57 @@
+# Milestone 2 masked reconstruction SSL - 2026-10-28
+
+Initial tree clean on dev/unified-ecg-pipeline. No real GPU smoke or full SSL
+pretraining was launched. Existing supervised checkpoints and original notebook
+artifacts were not modified. SSL adds no encoder architecture: a temporal
+feature method exposes the same Mamba operations and a separate linear head
+reconstructs 12-lead waveforms. Supervised state keys and forward results remain
+covered by regression checks.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-milestone2-release --tb=short
+```
+
+**87 passed, 4 skipped, 5 warnings in 36.15s.** Four skips require actual CUDA
+Mamba (three existing supervised tests, one new reconstruction test). Warnings
+are the existing SequentialLR transition notice. Local Torch remains CPU-only;
+Windows disposable Git integration tests ran outside the sandbox for MSYS.
+
+Focused evidence:
+
+- Deterministic contiguous masks share a window across all 12 leads, retain
+  exactly the requested rounded/clamped coverage and depend on seed/epoch/ECG ID,
+  independently of batch ordering. Targets are not mutated.
+- FP32 masked-only MSE ignores arbitrarily large unmasked errors and produces
+  zero gradients outside the masked region under ambient CPU autocast.
+- SSL data preparation works with diagnostic columns absent; it retains every
+  training ECG, reads no held-out waveform, fits training-only normalization,
+  rejects patient leakage and performs zero repeated raw reads across cached
+  epochs and repeated preparation.
+- Synthetic CPU encoder-double smoke and full-budget plumbing exercise actual
+  masked backward/optimizer updates, finite checks, checkpoints/encoder reload,
+  complete-record accounting, loss histories, split/config provenance, curves
+  and 12-lead reconstruction PNG/NPZ exports. These are not real Mamba results.
+- Injected NaN reconstruction aborts without exporting a successful encoder,
+  saving epoch/batch/ECG/tensor finite diagnostics.
+- Sequential worker tests use explicit CPU/CUDA/model doubles: SSL-only mode
+  does not invoke diagnostic-label audits; full mode is blocked without a smoke
+  or after a failed smoke. A passing smoke precedes explicit synthetic full mode.
+- Existing supervised tests, controlled checkpoint continuation, finite guards,
+  cache/split/normalization, secure bootstrap and notebook controls remain passing.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap, disabled SSL
+defaults and Git whitespace checks pass. A generated synthetic 12-lead plot was
+visually inspected: original/reconstruction curves, lead labels and shared mask
+shading are readable. No generated waveform/checkpoint artifacts are committed.
+
+Actual Kaggle must execute the preserved full-size CUDA Mamba SSL smoke first.
+Full PTB-XL pretraining remains an explicit later choice via RUN_SSL_PRETRAIN;
+both SSL flags currently default False. See ssl_pretraining.md for exact switches,
+loss semantics, training-only data boundaries, export scope and output paths.
+
+---
+
 # Controlled checkpoint continuation - 2026-10-28
 
 Read-only verification of the user's preserved real Kaggle checkpoints:

@@ -4,6 +4,14 @@ Use the latest **05_btp_kaggle_final.ipynb** from `dev/unified-ecg-pipeline`.
 The notebook is a self-contained entry point; it synchronizes source from GitHub.
 `04` and `ecg-xl-btp` remain development/attempt references, not execution prerequisites.
 
+Milestone 2 adds independent RUN_SSL_SMOKE / RUN_SSL_PRETRAIN switches, both
+False by default. For SSL-only execution, disable the four supervised task/smoke/
+metadata switches, then enable RUN_SSL_SMOKE. Full SSL requires an explicit
+RUN_SSL_PRETRAIN=True and a passed same-execution GPU smoke. SSL uses a separate
+SSL_SETTINGS budget, training-fold-only cache and session/ssl output folders.
+See [masked reconstruction instructions](ssl_pretraining.md). Supervised
+checkpoint continuation and benchmark settings remain separate.
+
 ## One-time preparation before Run All
 
 1. Import the latest final notebook into Kaggle. You do **not** need a Kaggle
