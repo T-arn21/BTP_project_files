@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
-from .utils import write_json
+from .utils import write_json, log_progress
 
 
 def validate_arrays(labels, probabilities):
@@ -82,7 +82,9 @@ def predict(model, loader, device="cpu", layout="channels_first"):
     if device.type == "cuda":
         torch.cuda.synchronize(device)
     start = perf_counter()
-    for x, y, ecg_ids in loader:
+    log_progress(f"Inference starting: {len(loader)} batches")
+    last_log = perf_counter()
+    for batch_index, (x, y, ecg_ids) in enumerate(loader, 1):
         x = x.to(device)
         if layout == "time_first":
             x = x.transpose(1, 2).contiguous()
@@ -92,6 +94,9 @@ def predict(model, loader, device="cpu", layout="channels_first"):
         ys.append(y.numpy())
         ps.append(logits.sigmoid().float().cpu().numpy())
         ids.append(np.asarray(ecg_ids))
+        if batch_index == 1 or batch_index % 50 == 0 or perf_counter() - last_log >= 15:
+            log_progress(f"Inference batch {batch_index}/{len(loader)}; elapsed={perf_counter() - start:.1f}s")
+            last_log = perf_counter()
     if not ys:
         raise ValueError("Cannot predict an empty loader")
     if device.type == "cuda":

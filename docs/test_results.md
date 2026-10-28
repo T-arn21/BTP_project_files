@@ -1,3 +1,84 @@
+# Task 3 release checks — 2026-10-28
+
+Repository: existing dev/unified-ecg-pipeline. Remote fetched before changes.
+The initial working tree included the user's one-line encoder fix and new
+`ecg-xl-btp.ipynb`; both are preserved and included in this milestone.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-task3-release --tb=short
+```
+
+**41 passed, 3 skipped, 5 warnings in 26.27s.** The three skips require real
+Mamba CUDA kernels; warnings remain PyTorch SequentialLR transition deprecation.
+Local runtime remains Python 3.12.7, Torch 2.7.1+cpu, NumPy 1.26.4, pandas
+2.2.2, SciPy 1.13.1, scikit-learn 1.5.1, with isolated WFDB 4.1.2 from the
+previous milestone. The user's reported Python 3.13/Torch 2.11/WFDB 4.3.1 Kaggle
+stack is documented, **not locally reproduced**.
+
+## New regression evidence
+
+- Actual encoder/pooling/head code runs on CPU with a test double only for
+  the CUDA-only block. Both 5- and 23-output models return pooled features
+  from the encoder, call the head once, and backpropagate finite gradients.
+- Deterministic sampled training-only normalization, dedicated sampling seed,
+  exact full mode, shared superclass/subclass cache/statistics and retained
+  original split/rare-class behavior pass.
+- Cached normalized tensors match the uncached path exactly. Changing filter,
+  metadata or source-file stats invalidates caches; incomplete completion
+  markers and same-size corrupted payload bytes trigger rebuilds.
+- A cached DataLoader reaches its first batch and an actual optimizer update.
+  Two training passes use **zero additional waveform-reader calls** after
+  initial cache creation. Augmentation remains outside deterministic caching.
+- A synthetic end-to-end diagnostic performs training/checkpoint/evaluation
+  exports without test predictions or tuned thresholds. Diagnostic limits
+  cannot be used as benchmark data.
+- Every final notebook code cell executes sequentially with all flags disabled.
+  Explicit CPU model/CUDA/setup test doubles also exercise Run All with both
+  tasks, smoke, full training/evaluation/export branches, and diagnostic branches.
+  These tests do not claim real Mamba/GPU execution.
+- Setup tests confirm working installations skip install and source-build
+  commands retain pinned versions, KEEP_CUDA=True, MAX_JOBS=2, verbose logging
+  and --no-build-isolation. No actual CUDA installation was attempted locally.
+- Existing label, data, metric, checkpoint, resume, and generated WFDB roundtrip
+  tests continue to pass.
+
+## Small synthetic performance check (not a Kaggle benchmark)
+
+36 generated waveforms, cached float32 100 Hz data, CPU test-only linear adapter:
+
+| Measurement | Observed |
+| --- | --- |
+| Metadata/cache/normalization preparation | 0.1484 s |
+| Cached first batch (4 records) | 0.00173 s |
+| BCE backward + optimizer step | 0.00076 s |
+| Reader calls after preparation across 48 training samples | 0 |
+
+These numbers measure local synthetic plumbing, **not** WFDB storage throughput
+or preserved Mamba training speed. Their useful evidence is reaching optimization
+and eliminating repeated reader/filter work. Real initial cache creation still
+reads and filters every required record once; its Kaggle wall time is unknown.
+
+Additional checks: compileall, notebook schema/syntax and Git whitespace checks
+pass. The original three reference notebooks are byte-for-byte unchanged.
+`04_btp_experiments.ipynb` has no Git diff (Windows text newline normalization
+is accounted for). The user's attempt notebook is preserved as supplied and has
+zero saved outputs, so its reported smoke success is attributed to the user.
+
+## Still needs real Kaggle execution
+
+- Pinned source-build/supplied-wheel compatibility on the actual fresh runtime.
+- Real PTB-XL release/data/hash verification, full deterministic-cache build
+  duration and space use, first-batch time, data-wait timing and GPU utilization.
+- Both full-architecture CUDA/AMP smoke runs after the permanent head fix.
+- Full superclass/subclass epochs, validation/test performance and complete
+  benchmark outputs. No new real classification scores are claimed.
+- Actual GPU memory budget and fused-kernel/multi-worker reproducibility.
+
+See README and kaggle_execution.md for the Run All controls and resume procedure.
+
+---
+
 # Executed checks — latest 2026-10-27
 
 ## Kaggle preflight preparation milestone

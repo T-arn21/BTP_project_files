@@ -12,6 +12,12 @@ class DataConfig:
     augment: bool = True
     unlabeled: str = "drop"  # or error; never treat unknown diagnoses as negatives
     num_workers: int = 0
+    dataset_version: str = "unknown"  # operator-declared; never inferred as verified
+    normalization_mode: str = "sampled"  # sampled or full, both training-only
+    normalization_samples: int = 1000
+    normalization_seed: int = 42
+    cache_dir: str = "outputs/ptbxl_cache"
+    cache_signals: bool = True
 
     def __post_init__(self):
         if self.sampling_rate not in (100, 500):
@@ -20,6 +26,8 @@ class DataConfig:
             raise ValueError("Invalid duration or tensor layout")
         if self.unlabeled not in {"drop", "error"} or self.num_workers < 0:
             raise ValueError("Invalid unlabeled policy or worker count")
+        if self.normalization_mode not in {"sampled", "full"} or self.normalization_samples < 1:
+            raise ValueError("Invalid normalization mode or sample count")
 
 
 @dataclass
@@ -55,6 +63,9 @@ class ExperimentConfig:
     seed: int = 42
     device: str = "auto"
     output_root: str = "outputs"
+    diagnostic: bool = False
+    diagnostic_batches: int = 2
+    log_every_batches: int = 20
     data: DataConfig = field(default_factory=DataConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
 
@@ -65,3 +76,5 @@ class ExperimentConfig:
             raise ValueError("epochs, batch_size, patience must be positive")
         if not 0 <= self.label_smoothing < 1:
             raise ValueError("label_smoothing must be in [0, 1)")
+        if self.diagnostic_batches < 1 or self.log_every_batches < 1:
+            raise ValueError("diagnostic_batches and log_every_batches must be positive")

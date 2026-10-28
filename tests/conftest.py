@@ -33,4 +33,4 @@ def synthetic_reader(path, sampling_rate):
 
 @pytest.fixture
 def data_config(synthetic_root):
-    return DataConfig(data_dir=str(synthetic_root), augment=False)
+    return DataConfig(data_dir=str(synthetic_root), augment=False, cache_dir=str(synthetic_root / "cache"))

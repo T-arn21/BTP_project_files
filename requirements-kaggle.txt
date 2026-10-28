@@ -3,8 +3,10 @@ numpy>=1.26,<3
 pandas>=2.2,<3
 scipy>=1.13,<2
 scikit-learn>=1.5,<2
-wfdb>=4.1,<5
+wfdb==4.3.1
 matplotlib>=3.8,<4
 packaging>=24
 ninja>=1.11
+einops>=0.6
+transformers>=4.30
 # mamba-ssm and causal-conv1d are installed in their own opt-in CUDA cell.

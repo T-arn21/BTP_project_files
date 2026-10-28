@@ -202,7 +202,7 @@ class MambaEncoder(nn.Module):
             pooled = mean_pooled
 
         pooled = self.dropout(pooled)
-        return self.head(pooled)
+        return pooled
 
 class MambaClassifier(MambaEncoder):
     """Original logits path with a reusable head-free encoder/forward_features."""

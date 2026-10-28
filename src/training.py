@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from torch import nn
 from .evaluation import evaluate
-from .utils import write_json
+from .utils import log_progress
 
 
 def make_pos_weight(labels, maximum=8.0):
@@ -35,6 +35,8 @@ def load_checkpoint(path, model, class_names=None, device="cpu"):
 
 class Trainer:
     def __init__(self, model, config, class_names, directory, pos_weight=None, metadata=None):
+        init_start = perf_counter()
+        log_progress("Trainer initialization: moving model, creating BCE/AdamW/scheduler")
         self.config, self.class_names = config, list(class_names)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if config.device == "auto" else torch.device(config.device)
         self.model = model.to(self.device)
@@ -52,11 +54,20 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=config.min_lr)
         self.scaler = torch.amp.GradScaler("cuda", enabled=config.mixed_precision and self.device.type == "cuda")
         self.history, self.best_score, self.counter = [], -math.inf, 0
+        log_progress(f"Trainer ready on {self.device} in {perf_counter() - init_start:.2f}s")
 
     def _epoch(self, loader, train):
         self.model.train(train)
         total, count, ys, ps = 0.0, 0, [], []
-        for x, y, _ in loader:
+        stage = "train" if train else "validation"
+        epoch_start, last_log = perf_counter(), perf_counter()
+        wait_start, data_wait = perf_counter(), 0.0
+        log_progress(f"{stage}: waiting for first batch ({len(loader)} batches, workers={loader.num_workers})")
+        for batch_index, (x, y, _) in enumerate(loader, 1):
+            batch_wait = perf_counter() - wait_start
+            data_wait += batch_wait
+            if batch_index == 1:
+                log_progress(f"{stage}: first batch loaded in {batch_wait:.3f}s; shape={tuple(x.shape)}; starting forward{'/backward' if train else ''}")
             x, y = x.to(self.device), y.to(self.device).float()
             if self.config.data.layout == "time_first":
                 x = x.transpose(1, 2).contiguous()
@@ -76,13 +87,22 @@ class Trainer:
                     nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip_norm)
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
+
+            if batch_index == 1 or batch_index % self.config.log_every_batches == 0 or perf_counter() - last_log >= 15 or batch_index == len(loader):
+                if self.device.type == "cuda":
+                    torch.cuda.synchronize(self.device)
+                log_progress(f"{stage} batch {batch_index}/{len(loader)}: BCE={loss.item():.4f}, elapsed={perf_counter() - epoch_start:.1f}s, data_wait={data_wait:.2f}s" + ("; optimizer step completed" if train else ""))
+                last_log = perf_counter()
             total += loss.item() * len(y)
             count += len(y)
             ys.append(y.detach().cpu().numpy())
             ps.append(logits.detach().sigmoid().float().cpu().numpy())
+            wait_start = perf_counter()
         if not count:
             raise ValueError("Training and validation loaders must be nonempty")
+        log_progress(f"{stage}: computing epoch metrics for {count} records")
         metrics, _ = evaluate(np.concatenate(ys), np.concatenate(ps), self.class_names)
+        self.last_data_wait_seconds = data_wait
         return total / count, metrics["macro_auroc"]
 
     def fit(self, train_loader, val_loader, resume_from=None):
@@ -112,14 +132,17 @@ class Trainer:
             return pd.DataFrame(self.history)
         for epoch in range(start_epoch, self.config.epochs + 1):
             start = perf_counter()
+            log_progress(f"Epoch {epoch}/{self.config.epochs} starting")
             train_loss, train_auc = self._epoch(train_loader, True)
+            train_data_wait = self.last_data_wait_seconds
             val_loss, val_auc = self._epoch(val_loader, False)
             self.scheduler.step()
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
             record = dict(epoch=epoch, train_loss=train_loss, val_loss=val_loss,
                           train_auroc=train_auc, val_auroc=val_auc,
-                          learning_rate=self.optimizer.param_groups[0]["lr"], epoch_seconds=perf_counter() - start)
+                          learning_rate=self.optimizer.param_groups[0]["lr"], epoch_seconds=perf_counter() - start,
+                          train_data_wait_seconds=train_data_wait, val_data_wait_seconds=self.last_data_wait_seconds)
             self.history.append(record)
             # If every validation AUROC is undefined, consistently monitor -val_loss.
             score = val_auc if np.isfinite(val_auc) else -val_loss
@@ -136,11 +159,14 @@ class Trainer:
                          rng_python=random.getstate(), rng_numpy=(np_rng[0], np_rng[1].tolist(), *np_rng[2:]),
                          loader_rng=train_loader.generator.get_state() if train_loader.generator is not None else None,
                          augmentation_rng=aug.rng.bit_generator.state if aug is not None else None)
+            save_start = perf_counter()
+            log_progress(f"Saving checkpoint epoch {epoch} to {self.directory}")
             torch.save(state, self.directory / "last.pth")
             if improved:
                 torch.save(state, self.directory / "best.pth")
             pd.DataFrame(self.history).to_csv(self.directory / "history.csv", index=False)
-            print(f"Epoch {epoch}/{self.config.epochs}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}, val_AUROC={val_auc:.4f}")
+            log_progress(f"Checkpoint saved in {perf_counter() - save_start:.2f}s")
+            log_progress(f"Epoch {epoch}/{self.config.epochs}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}, val_AUROC={val_auc:.4f}")
             if self.counter >= self.config.patience:
                 break
         return pd.DataFrame(self.history)

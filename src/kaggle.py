@@ -42,7 +42,7 @@ def find_ptbxl_root(explicit=None, search_roots=("/kaggle/input",)):
     return candidates.pop()
 
 
-def audit_metadata(root):
+def audit_metadata(root, dataset_version="unknown"):
     """Verify both official tasks and all patient folds without reading waveforms."""
     root = Path(root)
     try:
@@ -64,8 +64,9 @@ def audit_metadata(root):
         if not np.isin(labels.to_numpy(), [0, 1]).all():
             raise ValueError("Diagnostic targets are not binary")
     summary = {"records": len(metadata), "patients": metadata.patient_id.nunique(),
-               "requested_version": "1.0.3", "release_verified": False,
-               "version_note": "Verify the attached source version; CSV schema alone cannot certify v1.0.3.",
+               "declared_dataset_version": dataset_version, "release_verified": False,
+               "dataset_root": str(root.resolve()),
+               "version_note": "Operator-declared release; CSV schema alone cannot certify the version.",
                "metadata_sha256": {name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                                    for name in ("ptbxl_database.csv", "scp_statements.csv")},
                "splits": {name: {"records": len(ids), "patients": metadata.loc[ids, "patient_id"].nunique()}
@@ -126,6 +127,24 @@ def require_cuda():
         raise RuntimeError("CUDA GPU unavailable. In Kaggle choose Settings > Accelerator > GPU, "
                            "restart the session, and verify torch.version.cuda and nvidia-smi. "
                            "Do not install a CPU Torch wheel over Kaggle's GPU runtime.")
+
+
+def cached_smoke_data(data, batch_size=2):
+    """Use the same cached signals/statistics as training, without augmentation/test access."""
+    config = replace(data.config, augment=False, num_workers=0)
+    batches, record_ids = {}, {}
+    for split in ("train", "val"):
+        source = data.datasets[split]
+        ds = PTBXLDataset(data.metadata, data.labels, source.ids[:batch_size],
+                         config, data.normalizer, "val", source.reader)
+        ds.cache_path, ds.cache_rows = source.cache_path, source.cache_rows
+        batches[split] = next(iter(DataLoader(ds, batch_size=batch_size)))
+        record_ids[split] = list(map(int, ds.ids))
+    return dict(batches=batches, class_names=data.class_names,
+                normalizer=data.normalizer.state_dict(),
+                normalization_record_ids=data.provenance["normalization_record_ids"],
+                record_ids=record_ids, task="superclass" if len(data.class_names) == 5 else "subclass",
+                purpose="smoke_only_no_test_evaluation")
 
 
 def smoke_forward_backward(model, batch, *, device="cuda", mixed_precision=True, require_gpu=True):

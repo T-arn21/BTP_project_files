@@ -5,6 +5,11 @@ import importlib.metadata
 from pathlib import Path
 import numpy as np
 import torch
+from datetime import datetime, timezone
+
+
+def log_progress(message):
+    print(f"[{datetime.now(timezone.utc):%H:%M:%S} UTC] {message}", flush=True)
 
 
 def seed_everything(seed):
