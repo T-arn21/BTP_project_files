@@ -21,6 +21,7 @@ def test_notebook_cpu_audit_defaults():
     assert namespace["NEED_GPU"] is False
     settings = namespace["SETTINGS"]
     assert cpu_provenance_only(settings)
+    assert settings["SSL_FINETUNE_NORMALIZER_POLICY"] == "strict"
     assert settings["SSL_FINETUNE_REFERENCE_CACHE"].endswith("signals_fa14baaf8ce23a18d5778e2d/signals.npy")
     assert settings["SSL_FINETUNE_ENCODER_SHA256"] == "8d99bd77ad9c65e15519cc744c57a1e683e0accd34fa8724c6a5382cdf1e38d4"
 

@@ -97,6 +97,8 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                             failure.update(provenance_report=exc.report_path, mismatches=exc.report["mismatches"])
                         write_json(out / "checkpoint_failure.json", failure)
                         raise
+                    metadata["normalizer"] = data.normalizer.state_dict()
+                    metadata["provenance"] = data.provenance
                     write_json(out / "ssl_initialization.json", proof)
                 if cfg.initial_checkpoint and not resume_from:
                     log_progress("Loading explicitly selected finite checkpoint weights into a NEW run; optimizer/scheduler/scaler reset")

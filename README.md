@@ -5,6 +5,8 @@ waveform reconstruction SSL**, using the same encoder and preprocessing.
 Use **`05_btp_kaggle_final.ipynb`** as the primary Kaggle execution notebook.
 Its current defaults perform a CPU-only SSL provenance audit; select Accelerator None.
 GPU smokes and all training remain disabled until explicitly configured.
+See [normalizer evidence and migration gates](docs/ssl_normalizer_migration.md) for
+the latest confirmed CPU waveform differences and the report-only audit settings.
 No extra encoder architectures are added. SSL pretraining is opt-in and full
 pretraining has not been executed here. See [SSL settings and outputs](docs/ssl_pretraining.md).
 

@@ -132,8 +132,11 @@ def test_full_proof_rejects_damage_without_transfer(source, tmp_path, monkeypatc
         initialize_ssl_backbone(model, cfg, data, report_dir=tmp_path)
     report = caught.value.report
     assert report["status"] == "rejected" and report["blocking_mismatch_count"]
-    assert not report.get("content_equivalence", {}).get("verified", False)
+    if damage != "other_gate":
+        assert not report.get("content_equivalence", {}).get("verified", False)
     if damage == "last_ecg":
         assert report["content_equivalence"]["first_mismatched_ecg_id"] == 24
         assert report["content_equivalence"]["checked_records"] == 23
-    if damage == "other_gate": assert not report["content_equivalence"]["attempted"]
+    if damage == "other_gate":
+        assert report["content_equivalence"]["verified"]
+        assert not report["normalization_analysis"]["current_fit_reproduced"]

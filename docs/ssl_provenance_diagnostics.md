@@ -162,3 +162,7 @@ checkpoint-authenticated full-population proof required for a sole stat-signatur
 Current notebook defaults run only the CPU provenance audit (Kaggle Accelerator None).
 The reference accepts a signals.npy file, its entry directory, or the parent cache/ssl directory;
 see the content-equivalence guide for exact pinned paths and strict resolution rules.
+
+[Normalizer diagnosis and explicit authenticated source reuse](ssl_normalizer_migration.md)
+documents independent full content reporting when mean/std also mismatch, current
+CPU-audit settings and the additional exact reproducibility/authorization checks.

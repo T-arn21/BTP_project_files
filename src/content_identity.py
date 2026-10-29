@@ -80,12 +80,14 @@ def verify_training_content(state, data, identity, reference_path):
         shape = (len(ids), 12, data.config.sampling_rate * data.config.duration)
         if reference.shape != shape or reference.dtype != np.dtype("float32"):
             raise ValueError("Reference cache shape/dtype mismatch")
+        proof.update(reference_authenticated=True, reference_payload_sha256=pin, training_ids=ids)
         # Independent deterministic dataset: never reuse augmented/normalized samples
         # or the diagnostic subset. Cache creation reads every missing training ECG.
         processed = PTBXLDataset(data.metadata, pd.DataFrame(index=data.metadata.index), ids,
                                  data.config, SignalNormalizer(), "val", data.datasets["train"].reader)
         live_path, live_manifest = ensure_signal_cache(identity, ids, data.config, processed.processed_signal)
         current = np.load(live_path, mmap_mode="r", allow_pickle=False)
+        proof.update(current_cache_path=live_path, current_payload_sha256=live_manifest["payload_sha256"])
         expected_hash, actual_hash = hashlib.sha256(), hashlib.sha256()
         header = json.dumps(dict(schema=1, ids=ids, shape=list(shape), dtype="<f4"), sort_keys=True).encode()
         expected_hash.update(header)
@@ -101,6 +103,9 @@ def verify_training_content(state, data, identity, reference_path):
             actual_hash.update(b)
             if a != b:
                 proof["first_mismatched_ecg_id"] = ecg_id
+                delta = np.abs(left.astype(np.float64) - right.astype(np.float64))
+                proof["waveform_difference"] = dict(max_absolute=float(delta.max()),
+                    unequal_values=int(np.count_nonzero(left != right)), shape=list(left.shape))
                 raise ValueError(f"Waveform content mismatch at ECG {ecg_id}")
             proof["checked_records"] = row + 1
             if row == 0 or (row + 1) % 100 == 0 or perf_counter() - last_log >= 10:

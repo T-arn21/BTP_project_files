@@ -1,3 +1,51 @@
+# SSL normalizer investigation and independent content proof - 2026-10-29
+
+Inspected CPU session 20261029T135756Z_bcc506df from the newly supplied results_3
+download read-only. Its three mismatches are confirmed. All 24 original files
+were hashed/size/mtime recorded and rechecked unchanged. Encoder and reference
+payload pins independently verified against the original download.
+
+The normalization fit IDs/configuration match. Among 1,004 overlapping train
+ECGs, 80 differ in 86 float32 values; all 80 are normalization fit records.
+Maximum absolute waveform difference 2.9802322387695312e-08; maximum float32
+ULP distance 21. Re-fitting the original cache exactly reproduces original
+normalization; re-fitting the CPU cache exactly reproduces CPU normalization.
+Saved mean/std maximum differences are 1.8160874280109818e-14 and
+2.906008766956347e-14 respectively. Thus processed-input differences explain
+the normalization mismatch; the CPU normalization cache is not proved corrupt.
+Deeper CPU/build arithmetic versus raw-input differences remain unverified.
+Nominal NumPy/SciPy/WFDB/source versions match; raw waveform files and historical
+CPU build details are unavailable locally. The remaining 16,437 train ECGs are
+not assumed equivalent. See ssl_normalizer_migration.md and the ignored machine
+report outputs/normalizer_forensics/cpu_session_findings.json.
+
+Full content proof now reports independently when normalizer values mismatch.
+Diagnostic refits/build metadata are saved separately, including on content
+rejection when complete caches are available. Optional authenticated-source
+normalization requires complete byte equivalence, pinned export, exact fit
+provenance and reproducible current fit, with no other mismatches. It binds
+training to the verified current cache and records effective statistics in new
+manifests/checkpoints. The next notebook defaults remain CPU-only, report-only
+strict policy; no GPU smoke or full run is enabled. Known real waveform drift
+must reject, even when numerically tiny.
+
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-normalizer-evidence-release --tb=short
+```
+
+**168 passed, 6 skipped, 5 warnings in 85.30s.** Skips require CUDA Mamba;
+warnings are existing scheduler notices. New tests cover exact timestamp-only
+migration, independent strict reporting without approval, authenticated source
+reuse for both tasks with fresh heads and exact source statistics, rejected
+wrong fit IDs/splits/settings/statistics/unauthenticated state, irreproducible
+current normalization, one-ULP waveform drift with a correct current fit, missing
+reference evidence even with otherwise exact values, and effective normalizer
+persistence in new checkpoint metadata. The notebook schema/code syntax,
+CPU-only flags, strict report-only default and original encoder pin pass.
+No Kaggle execution or GPU smoke/full training was launched.
+
 # Reference-cache layouts and CPU provenance-only execution - 2026-10-29
 
 Source-level reproduction confirms the reported session 20261029T124001Z_81cda7c8

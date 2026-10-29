@@ -117,24 +117,60 @@ def compare_ssl_provenance(state, config, data, export_evidence=None):
         population_scope="SSL ID/signature comparison uses all official training folds before label exclusions; supervised subsets are recorded separately",
         intentionally_different_controls={k: dict(expected_ssl=state["data_config"].get(k), actual_supervised=asdict(data.config).get(k)) for k in sorted(ignored)})
 
-    # Content migration is opt-in and only eligible for the sole stat-digest
-    # difference. Never mask a root/version/code/split/normalization mismatch.
+    # Waveform verification is independent of the normalizer value comparison.
+    # Other source/split/preprocessing gates must still pass before any data audit.
     if config.ssl_reference_cache:
-        field = "preprocessing_identity.raw_file_stats_sha256"
-        eligible = len(report["mismatches"]) == 1 and report["mismatches"][0]["field"] == field
+        stat_field = "preprocessing_identity.raw_file_stats_sha256"
+        normal_fields = {"normalizer.mean", "normalizer.std"}
+        allowed = normal_fields | {stat_field}
+        eligible = all(d["field"] in allowed for d in report["mismatches"])
+        from .normalizer_migration import audit_normalization, numerical_runtime_info
+        report["numerical_runtime"] = numerical_runtime_info()
         if eligible:
             from .content_identity import verify_training_content
             evidence = verify_training_content(state, data, actual["preprocessing_identity"], config.ssl_reference_cache)
             report["content_equivalence"] = evidence
-            if evidence["verified"]:
-                report["mismatches"][0].update(accepted=True, compatibility_evidence=evidence)
-                report.update(status="passed_verified_training_content", blocking_mismatch_count=0,
-                              compatibility_policy="sole raw-file stat difference; entire authenticated SSL training waveform content verified; all other checks exact")
+            analysis = audit_normalization(state, data, evidence)
+            report["normalization_analysis"] = analysis
+            authenticated = bool(export_evidence and export_evidence.get("completion_verified") is True and
+                                 isinstance(config.ssl_encoder_sha256, str) and
+                                 export_evidence.get("sha256") == config.ssl_encoder_sha256.lower())
+            approved = (config.ssl_normalizer_policy == "authenticated_source" and authenticated and
+                        evidence["verified"] and analysis["verified"])
+            report["normalizer_migration"] = dict(policy=config.ssl_normalizer_policy, approved=approved,
+                source_authenticated=authenticated, source_encoder_sha256=config.ssl_encoder_sha256,
+                original_normalizer=source["normalizer"], previous_current_normalizer=actual["normalizer"],
+                normalization_analysis=analysis, full_training_content_verified=evidence["verified"],
+                reason="explicit source policy with authenticated original statistics, complete content equivalence and reproducible live fit" if approved
+                       else "strict policy or missing content/authentication/reproducibility proof; normalizer differences remain blocking")
+            for difference in report["mismatches"]:
+                if evidence["verified"] and difference["field"] == stat_field:
+                    difference.update(accepted=True, compatibility_evidence=evidence)
+                elif approved and difference["field"] in normal_fields:
+                    difference.update(accepted=True, compatibility_evidence=report["normalizer_migration"])
+            blocked = sum(not d["accepted"] for d in report["mismatches"])
+            # An explicitly requested full proof/policy must fail closed even
+            # when old stat/normalizer values happened to compare exactly.
+            if not blocked and (not evidence["verified"] or
+                                (config.ssl_normalizer_policy == "authenticated_source" and not approved)):
+                report["mismatches"].append(dict(field="content_or_normalizer_migration.authorization", category="migration_policy",
+                    expected=True, actual=False, expected_present=True, actual_present=True, accepted=False))
+                blocked = 1
+            report.update(blocking_mismatch_count=blocked, mismatch_count=len(report["mismatches"]),
+                status="rejected" if blocked else ("passed_verified_content_original_normalizer" if approved else "passed_verified_training_content"),
+                compatibility_policy="full content proof may resolve stat drift; normalizer differences require explicit authenticated_source policy and exact reproducibility of the live fit; every other field remains exact")
         else:
             report["content_equivalence"] = dict(verified=False, attempted=False,
-                reason="Requires exactly one mismatch: preprocessing_identity.raw_file_stats_sha256; all other checks must pass")
+                reason="Content reporting permits only stat and normalizer value differences; inconsistent splits, normalization fit IDs/configuration or other preprocessing fields remain blocking")
     return report
 
+
+
+def write_ssl_comparison(path, report):
+    write_json(path, report)
+    for key in ("content_equivalence", "normalization_analysis", "normalizer_migration", "numerical_runtime"):
+        if key in report:
+            write_json(Path(path).with_name(key + ".json"), report[key])
 
 
 def initialize_ssl_backbone(model, config, data, report_dir=None):
@@ -142,10 +178,12 @@ def initialize_ssl_backbone(model, config, data, report_dir=None):
     report = compare_ssl_provenance(state, config, data, proof)
     report_path = Path(report_dir) / "ssl_provenance_comparison.json" if report_dir is not None else None
     if report_path:
-        write_json(report_path, report)
+        write_ssl_comparison(report_path, report)
     if report["blocking_mismatch_count"]:
         print(comparison_message(report, report_path), flush=True)
         raise ProvenanceMismatchError(report, report_path)
+    from .normalizer_migration import activate_verified_ssl_data
+    activate_verified_ssl_data(state, data, report)
     print(f"SSL provenance comparison: {report['status']}; report={report_path}", flush=True)
     source = state["provenance"]
     try:
@@ -171,6 +209,7 @@ def initialize_ssl_backbone(model, config, data, report_dir=None):
                  provenance_comparison_status=report["status"],
                  accepted_path_aliases=[d for d in report["mismatches"] if d["accepted"] and d["field"].endswith((".root", ".data_dir"))],
                  content_equivalence=report.get("content_equivalence"),
+                 normalizer_migration=report.get("normalizer_migration"),
                  verified_ssl_provenance=source, source_model_config=state["model_config"],
                  provenance_verified=True, transferred_parameter_names=sorted(transferred),
                  freshly_initialized_parameter_names=sorted(fresh),
@@ -200,9 +239,14 @@ def run_provenance_audit(config):
             normalizer=data.normalizer.state_dict(), splits={k: list(map(int, ids)) for k, ids in data.splits.items()},
             class_names=data.class_names))
         report = compare_ssl_provenance(state, config, data, proof)
-        write_json(report_path, report)
+        write_ssl_comparison(report_path, report)
         if report["blocking_mismatch_count"]:
             raise ProvenanceMismatchError(report, report_path)
+        from .normalizer_migration import activate_verified_ssl_data
+        activate_verified_ssl_data(state, data, report)
+        write_json(out / "data_manifest.json", dict(task=config.task, provenance=data.provenance,
+            normalizer=data.normalizer.state_dict(), normalizer_before_ssl_validation=report["actual"]["normalizer"],
+            splits={k: list(map(int, ids)) for k, ids in data.splits.items()}, class_names=data.class_names))
         summary = dict(status="complete", mode="provenance_only", optimizer_steps=0, benchmark_result=False,
                        provenance_comparison_status=report["status"], output_dir=str(out.resolve()))
         write_json(out / "summary.json", summary)

@@ -205,3 +205,7 @@ No fine-tuning scores are claimed here.
 
 See [full training content equivalence](ssl_content_identity.md) for the opt-in,
 checkpoint-authenticated full-population proof required for a sole stat-signature mismatch.
+
+[Normalizer diagnosis and explicit authenticated source reuse](ssl_normalizer_migration.md)
+documents independent full content reporting when mean/std also mismatch, current
+CPU-audit settings and the additional exact reproducibility/authorization checks.

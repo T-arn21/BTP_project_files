@@ -13,10 +13,11 @@ per-file cause remains unverified.
 
 `ExperimentConfig.ssl_reference_cache` (notebook `SSL_FINETUNE_REFERENCE_CACHE`)
 defaults to None in the Python API. The notebook currently selects the supplied full reference for an audit-only run. Existing behavior remains strict when it is unset.
-A content audit is eligible only when the **sole** provenance difference is
-`preprocessing_identity.raw_file_stats_sha256`. Dataset root/version, metadata
+A content audit is reportable when differences are limited to the stat digest
+and/or normalizer values. It does not by itself approve different normalizers.
+See [normalizer diagnosis and explicit source reuse](ssl_normalizer_migration.md). Dataset root/version, metadata
 hashes, preprocessing source, reader and package versions, model settings,
-normalization configuration/statistics/fit IDs, every training/held-out ID and
+normalization configuration/fit IDs, every training/held-out ID and
 patient separation must all match first. Directory relocation is not combined
 with this exception.
 
@@ -45,7 +46,9 @@ in this content comparison. Each float32 (12,1000) waveform must be finite and
 byte-identical to its reference record. It computes separate SHA256s over a
 versioned canonical header (ordered IDs, shape, dtype) and concatenated
 little-endian float32 C-order waveform bytes. Every record is explicitly compared;
-partial overlap cannot pass. Normalization remains an independent exact check.
+partial overlap cannot pass. Normalization remains an independent check; only an explicit, fully authenticated
+source-normalizer migration can resolve value differences after complete content
+proof and an exact same-runtime live-fit reproducibility check.
 
 This proves identical *processed training inputs*, not byte-identical original
 WFDB headers or files, nor that timestamps were the only underlying difference.
@@ -57,7 +60,9 @@ each task initialization. Data inputs must remain immutable during execution.
 
 The existing comparison report preserves expected/actual stat hashes and marks
 that mismatch accepted only after complete proof. It records
-`passed_verified_training_content`, checked count, all IDs, canonical hashes,
+`passed_verified_training_content` for strict/stat-only compatibility, or
+`passed_verified_content_original_normalizer` for the explicit original-normalizer
+policy; checked count, all IDs, canonical hashes,
 reference/current payload hashes and identities; failure retains `rejected`,
 error and the first mismatched ECG ID when applicable. Both success and failure
 are written to `ssl_provenance_comparison.json`. Successful classifier
@@ -117,9 +122,15 @@ steps**. It may preprocess all 17,441 training ECGs (about 0.84 GB additional
 cache, plus diagnostic/norm caches); this is a complete content audit, not a
 four-record smoke. Results are under
 `/kaggle/working/btp_outputs/sessions/<NEW>/ssl_finetuning/provenance_audit/<task>_<id>/`.
-Expected success is `passed_verified_training_content` with `checked_records=17441`
+For a truly equivalent input, strict/stat-only success is
+`passed_verified_training_content` with `checked_records=17441`; normalizer
+differences still reject until an explicit verified source-normalizer policy is selected
 for each task. A 1,004-record overlap or partial count cannot authorize transfer.
 After both audits pass, select a GPU for a later GPU smoke and use
 `SSL_FINETUNE_PROVENANCE_ONLY=False` with both full flags still False, AMP off.
 No full training was launched or content equivalence of the remaining 16,437
 real records claimed during local implementation.
+
+Current notebook defaults set SSL_FINETUNE_NORMALIZER_POLICY="strict" for diagnosis.
+The supplied CPU-session waveforms have confirmed differences and must remain rejected.
+Read the normalizer migration guide above for its additional gates and preserved evidence.
