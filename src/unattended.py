@@ -95,7 +95,8 @@ def run_worker(settings):
         save_summary(summary_path, summary)
         with stage_log(session, stage):
             root = find_ptbxl_root(settings["DATASET_ROOT"] or None)
-            supervised_requested = any(settings[k] for k in ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT"))
+            ft_requested = any(settings.get(k, False) for k in ("RUN_SSL_FINETUNE_SMOKE", "RUN_SSL_FINETUNE_SUPERCLASS", "RUN_SSL_FINETUNE_SUBCLASS"))
+            supervised_requested = ft_requested or any(settings[k] for k in ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT"))
             audit = audit_metadata(root, dataset_version=settings["DATASET_VERSION"]) if supervised_requested else None
             summary.update(dataset_root=str(root), declared_dataset_version=settings["DATASET_VERSION"])
             if settings["RUN_METADATA_AUDIT"]:
@@ -169,6 +170,63 @@ def run_worker(settings):
                     summary["experiments"][key] = {"status": "failed", "error": str(exc)}
                     if smoke and ssl_full:
                         summary["experiments"]["ssl_pretraining"] = {"status": "blocked_by_smoke_failure"}
+                    raise
+                finally:
+                    gc.collect()
+                    torch.cuda.empty_cache()
+        if ft_requested:
+            stage = "SSL fine-tuning source validation"
+            summary["stage"] = stage
+            full_tasks = [task for task in ("superclass", "subclass") if settings.get(f"RUN_SSL_FINETUNE_{task.upper()}", False)]
+            for task in ("superclass", "subclass"):
+                summary["experiments"][f"ssl_finetune_{task}"] = {"status": "pending" if task in full_tasks else "disabled_by_configuration"}
+            if not settings.get("RUN_SSL_FINETUNE_SMOKE", False):
+                for pending in full_tasks:
+                    summary["experiments"][f"ssl_finetune_{pending}"] = {"status": "blocked_missing_smoke"}
+                raise ValueError("Full SSL fine-tuning requires RUN_SSL_FINETUNE_SMOKE=True in the same execution")
+            path, checksum = settings.get("SSL_FINETUNE_ENCODER_PATH", ""), settings.get("SSL_FINETUNE_ENCODER_SHA256", "")
+            if not path or not checksum:
+                raise ValueError("Set SSL_FINETUNE_ENCODER_PATH and independently verified SSL_FINETUNE_ENCODER_SHA256; no fallback to fresh/baseline weights")
+            from .finetuning import load_completed_ssl_export
+            with stage_log(session, stage):
+                source, proof = load_completed_ssl_export(path, checksum)
+                del source
+                write_json(session / "ssl_finetune_source.json", proof)
+            ft_config = replace(config, ssl_encoder_checkpoint=path, ssl_encoder_sha256=checksum,
+                                **settings.get("SSL_FINETUNE_SETTINGS", {}))
+            # Both actual GPU smokes must finish before either full task starts.
+            stages = [(task, True) for task in ("superclass", "subclass")] + [(task, False) for task in full_tasks]
+            for task, smoke in stages:
+                key = f"ssl_finetune_{task}" + ("_smoke" if smoke else "")
+                stage = key
+                summary["stage"] = stage
+                summary["experiments"][key] = {"status": "running"}
+                save_summary(summary_path, summary)
+                task_config = replace(ft_config, task=task, diagnostic=smoke,
+                    epochs=1 if smoke else ft_config.epochs,
+                    output_root=str(session / "ssl_finetuning" / ("smoke" if smoke else "full")))
+                try:
+                    with stage_log(session, stage):
+                        result = run_experiment(config=task_config)
+                        directory = Path(result["output_dir"])
+                        required = ["ssl_initialization.json", "best.pth", "last.pth", "history.csv", "summary.json",
+                                    "config.json", "data_manifest.json", "numerical_settings.json", "figures/loss_curves.png"]
+                        required += ["ssl_smoke_gradients.json"] if smoke else ["thresholds.json", "validation/predictions.csv", "test/metrics.json", "test/predictions.csv"]
+                        missing = [name for name in required if not (directory / name).is_file()]
+                        if missing:
+                            raise RuntimeError(f"Incomplete SSL fine-tuning exports: {missing}")
+                    summary["completed"][key] = {"output_dir": result["output_dir"], "summary": result["summary"]}
+                    summary["experiments"][key] = dict(status="complete", output_dir=result["output_dir"], benchmark_result=not smoke)
+                    passed(key)
+                except Exception as exc:
+                    summary["experiments"][key] = {"status": "failed", "error": str(exc)}
+                    if smoke:
+                        for pending in full_tasks:
+                            summary["experiments"][f"ssl_finetune_{pending}"] = {"status": "blocked_by_smoke_failure"}
+                    else:
+                        for pending in full_tasks:
+                            if summary["experiments"][f"ssl_finetune_{pending}"]["status"] == "pending":
+                                summary["experiments"][f"ssl_finetune_{pending}"] = {"status": "not_run_after_task_failure"}
                     raise
                 finally:
                     gc.collect()

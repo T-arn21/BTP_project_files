@@ -152,6 +152,9 @@ class Trainer:
                     gradients = [(name, p.grad) for name, p in self.model.named_parameters() if p.grad is not None]
                     if not gradients or not named_finite(gradients):
                         self._fail("Nonfinite or missing gradients", "gradients")
+                    if self.config.ssl_encoder_checkpoint and self.config.diagnostic:
+                        from .finetuning import audit_smoke_gradients
+                        audit_smoke_gradients(self, gradients)
                     try:
                         nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip_norm, error_if_nonfinite=True)
                     except RuntimeError as exc:

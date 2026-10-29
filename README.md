@@ -6,6 +6,12 @@ Use **`05_btp_kaggle_final.ipynb`** as the primary Kaggle execution notebook.
 No extra encoder architectures are added. SSL pretraining is opt-in and full
 pretraining has not been executed here. See [SSL settings and outputs](docs/ssl_pretraining.md).
 
+SSL-pretrained classification fine-tuning is also opt-in for both label tasks.
+It pins the user's completed epoch-20 encoder SHA256, validates source/live data
+provenance, transfers only the backbone and initializes fresh attention pooling
+and classifier heads. Both GPU smokes must pass before explicitly enabled full
+runs. See [required checkpoint files and switches](docs/ssl_finetuning.md).
+
 - `04_btp_experiments.ipynb`: development reference, preserved.
 - `ecg-xl-btp.ipynb`: user's actual Kaggle attempt code, preserved. It has no
   saved outputs; successful CUDA/AMP smoke is user-reported, not a new benchmark.

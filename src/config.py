@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 from dataclasses import asdict
 import math
+import re
 
 
 @dataclass
@@ -62,6 +63,8 @@ class ExperimentConfig:
     mixed_precision: bool = True
     numerical_stability_mode: str = "strict"  # conservative also requires FP32 / lr <= 1e-4
     initial_checkpoint: str | None = None  # explicit weights-only start; not exact optimizer resume
+    ssl_encoder_checkpoint: str | None = None
+    ssl_encoder_sha256: str | None = None
     patience: int = 15
     min_delta: float = 1e-4
     seed: int = 42
@@ -92,6 +95,13 @@ class ExperimentConfig:
             raise ValueError("pos_weight_max must be finite and positive")
         if self.numerical_stability_mode == "conservative" and (self.mixed_precision or self.learning_rate > 1e-4):
             raise ValueError("Conservative mode requires mixed_precision=False and learning_rate <= 1e-4; settings are never silently changed")
+        if bool(self.ssl_encoder_checkpoint) != bool(self.ssl_encoder_sha256):
+            raise ValueError("SSL fine-tuning requires both encoder checkpoint path and expected SHA256")
+        if self.ssl_encoder_checkpoint:
+            if self.initial_checkpoint or self.model_name != "mamba":
+                raise ValueError("SSL encoder initialization requires Mamba and cannot be combined with initial_checkpoint")
+            if not re.fullmatch(r"[0-9a-fA-F]{64}", self.ssl_encoder_sha256):
+                raise ValueError("SSL encoder expected SHA256 must be exactly 64 hexadecimal characters")
 
 
 def checkpoint_config_matches(saved, current):
@@ -99,4 +109,6 @@ def checkpoint_config_matches(saved, current):
     saved = dict(saved)
     saved.setdefault("numerical_stability_mode", "strict")
     saved.setdefault("initial_checkpoint", None)
+    saved.setdefault("ssl_encoder_checkpoint", None)
+    saved.setdefault("ssl_encoder_sha256", None)
     return saved == (asdict(current) if isinstance(current, ExperimentConfig) else current)

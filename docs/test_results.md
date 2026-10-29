@@ -1,3 +1,60 @@
+# SSL-pretrained classification fine-tuning - 2026-10-29
+
+The initial tree was clean on dev/unified-ecg-pipeline. The user's reported
+completed epoch-20 SSL export is pinned by exact Kaggle input path and SHA256
+8d99bd77ad9c65e15519cc744c57a1e683e0accd34fa8724c6a5382cdf1e38d4.
+Remote web access was unavailable and the Kaggle file-list API returned HTTP
+403, so the actual encoder was not independently downloaded/hashed locally.
+Actual source integrity/live-data validation and real GPU smokes remain required
+on Kaggle. No expensive fine-tuning or pretraining was launched here.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-ssl-finetuning-release --tb=short
+```
+
+**109 passed, 6 skipped, 5 warnings in 44.54s.** Six skipped tests require real
+CUDA Mamba, including two new classifier-transfer smokes. Warnings are the
+existing SequentialLR transition notice. Windows local Git integration tests
+ran outside the sandbox for MSYS. Local Torch remains 2.7.1+cpu with isolated
+WFDB 4.1.2; this is not the real Kaggle runtime.
+
+New focused evidence (22 passed, 2 CUDA skips):
+
+- Check checksum before deserializing; refuse wrong hash, smoke/epoch-19/
+  incomplete sources, nonfinite tensors, incompatible shapes or extra head keys,
+  missing trained-backbone declarations and contradictory completion sidecars.
+- Compare SSL training-only raw signatures against the same live population,
+  with exact normalizer, fit IDs, folds/patient IDs and held-out exclusions.
+  Reject altered normalization, raw signatures, training IDs or patient scope.
+- Verify both task widths/class orders; copied backbone tensors equal source
+  exactly while classification head/pooling tensors remain exactly as freshly
+  initialized. Deliberately poisoned finite source pooling is never transferred.
+- Exercise the existing BCE trainer, finite/nonzero gradient audits for backbone,
+  attention pool and head, source transfer reports, checkpoint serialization,
+  metrics and prediction exports with clearly identified CPU classifier doubles.
+- Execute both smoke-only and explicit full-budget worker branches using
+  synthetic epoch-20 source evidence (not 20 executed SSL epochs). Both smokes
+  precede either full task; missing/failed smoke blocks full tasks. Full synthetic
+  classification exports test metrics and validation-selected thresholds.
+- Verify original source fixture SHA256 remains unchanged. Existing baseline,
+  SSL, numerical guards, checkpoint continuation and deterministic resume tests
+  still pass. Legacy config comparison explicitly covers all optional fields
+  absent from the original supervised checkpoints.
+
+An early positive workflow fixture mismatched its declared dataset release;
+the strict fingerprint gate correctly rejected it. Matching the synthetic
+fixture's release setting fixed the test without relaxing production checks.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap, whitespace,
+disabled fine-tuning defaults and the exact source pin all pass. Original
+reference notebooks, Mamba architecture, signal/cache preprocessing and source
+baseline/SSL checkpoint files were not edited. Three fine-tuning flags default
+False; SSL_FINETUNE_SETTINGS starts with AMP off and LR 1e-4. See
+ssl_finetuning.md for exact required files, switch combinations and output paths.
+
+---
+
 # Milestone 2 masked reconstruction SSL - 2026-10-28
 
 Initial tree clean on dev/unified-ecg-pipeline. No real GPU smoke or full SSL

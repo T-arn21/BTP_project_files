@@ -80,6 +80,15 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 model = create_model(cfg.model_name, len(data.class_names), cfg.model)
                 loaders = data.loaders(cfg.batch_size)
                 pos_weight = make_pos_weight(data.labels.loc[data.splits["train"]].to_numpy(), cfg.pos_weight_max) if cfg.use_pos_weight else None
+                if cfg.ssl_encoder_checkpoint and not resume_from:
+                    from .finetuning import initialize_ssl_backbone
+                    stage = "SSL encoder SHA256/provenance validation and backbone transfer"
+                    try:
+                        proof = initialize_ssl_backbone(model, cfg, data)
+                    except (ValueError, RuntimeError) as exc:
+                        write_json(out / "checkpoint_failure.json", {"checkpoint": cfg.ssl_encoder_checkpoint, "error": str(exc)})
+                        raise
+                    write_json(out / "ssl_initialization.json", proof)
                 if cfg.initial_checkpoint and not resume_from:
                     log_progress("Loading explicitly selected finite checkpoint weights into a NEW run; optimizer/scheduler/scaler reset")
                     try:
@@ -134,8 +143,9 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     _, table = evaluate(yt, pt, data.class_names, thresholds)
                 plot_results(history, table, out / "figures")
                 summary = dict(model_name=cfg.model_name, task=cfg.task, best_epoch=best_epoch,
-                               initialization="checkpoint_weights_only" if cfg.initial_checkpoint else "fresh",
-                               source_checkpoint=cfg.initial_checkpoint,
+                               initialization="ssl_backbone_fresh_pool_and_head" if cfg.ssl_encoder_checkpoint else ("checkpoint_weights_only" if cfg.initial_checkpoint else "fresh"),
+                               source_checkpoint=cfg.ssl_encoder_checkpoint or cfg.initial_checkpoint,
+                               ssl_encoder_sha256=cfg.ssl_encoder_sha256,
                                purpose=purpose, benchmark_result=not cfg.diagnostic,
                                train_records=len(data.splits["train"]), validation_records=len(data.splits["val"]),
                                total_parameters=sum(p.numel() for p in model.parameters()),

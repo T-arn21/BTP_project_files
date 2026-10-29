@@ -12,6 +12,14 @@ SSL_SETTINGS budget, training-fold-only cache and session/ssl output folders.
 See [masked reconstruction instructions](ssl_pretraining.md). Supervised
 checkpoint continuation and benchmark settings remain separate.
 
+For classification from the completed 20-epoch SSL encoder, use the separate
+RUN_SSL_FINETUNE_SMOKE / RUN_SSL_FINETUNE_SUPERCLASS / RUN_SSL_FINETUNE_SUBCLASS
+switches (all default False). The first cell pins the user's pretraining encoder
+path/SHA256 and provides SSL_FINETUNE_SETTINGS with AMP off. Both actual GPU
+smokes precede either explicitly enabled full task. See
+[SSL fine-tuning setup](ssl_finetuning.md) for the three required source files,
+strict provenance comparisons and new session/ssl_finetuning output paths.
+
 ## One-time preparation before Run All
 
 1. Import the latest final notebook into Kaggle. You do **not** need a Kaggle

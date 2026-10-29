@@ -145,6 +145,8 @@ def test_conservative_mode_weights_and_legacy_checkpoint_guards(tmp_path):
     old = asdict(regular)
     old.pop("numerical_stability_mode")
     old.pop("initial_checkpoint")
+    old.pop("ssl_encoder_checkpoint")
+    old.pop("ssl_encoder_sha256")
     assert checkpoint_config_matches(old, regular)
     assert not checkpoint_config_matches(old, safe)
     net = model()
@@ -185,6 +187,8 @@ def test_legacy_exact_resume_checks_loaded_optimizer(tmp_path, corrupt_optimizer
     state = torch.load(path, weights_only=True)
     state["config"].pop("numerical_stability_mode")
     state["config"].pop("initial_checkpoint")
+    state["config"].pop("ssl_encoder_checkpoint")
+    state["config"].pop("ssl_encoder_sha256")
     if corrupt_optimizer:
         next(iter(state["optimizer_state_dict"]["state"].values()))["exp_avg"].fill_(float("nan"))
     torch.save(state, path)
