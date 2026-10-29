@@ -196,6 +196,7 @@ def run_worker(settings):
                 del source
                 write_json(session / "ssl_finetune_source.json", proof)
             ft_config = replace(config, ssl_encoder_checkpoint=path, ssl_encoder_sha256=checksum,
+                                ssl_reference_cache=settings.get("SSL_FINETUNE_REFERENCE_CACHE") or None,
                                 **settings.get("SSL_FINETUNE_SETTINGS", {}))
             # Both actual GPU smokes must finish before either full task starts.
             stages = [(task, True) for task in ("superclass", "subclass")] + [(task, False) for task in full_tasks]

@@ -68,3 +68,6 @@ No GPU model, optimizer, training or preprocessing of raw ECGs was executed in
 this audit. The numeric operations were read-only comparisons of saved cache
 arrays and saved statistics. See findings.json for full metadata/evidence and
 artifact_hashes.json for original file integrity records.
+
+A subsequent implementation adds an opt-in [full training content proof](ssl_content_identity.md).
+The historical decision above remains in force until that complete proof actually passes.

@@ -1,3 +1,31 @@
+# Full SSL training-content proof - 2026-10-29
+
+Confirmed the historical stat signature hashes relative names/presence, byte
+sizes and nanosecond modification timestamps, not waveform bytes. Added an
+explicit original-reference-cache option; a sole stat mismatch can be accepted
+only after authenticating the complete reference payload against the pinned
+encoder and byte-comparing every finite deterministic training waveform.
+All other provenance/leakage/normalization gates remain exact. Original stat
+hashes remain in the report. No real-data full equivalence or GPU training was
+executed; the remaining 16,437 real records still require Kaggle verification.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-content-release --tb=short
+```
+
+**132 passed, 6 skipped, 5 warnings in 100.63s.** CUDA Mamba checks are skipped
+on this CPU host; warnings are existing scheduler notices. Ten new tests cover
+mtime sensitivity, complete content acceptance with retained stat hashes and
+fresh classifier heads, last-record-only changes (23/24 is insufficient),
+nonfinite content, reference corruption, wrong/missing manifests and IDs,
+unrelated provenance gates, and disabled opt-in rejection.
+Notebook schema, every code cell's Python syntax, first-cell settings propagation,
+and full SSL/pretraining task flags remaining False also passed. The initial
+sandboxed targeted run had 44 passes/2 skips and one Windows samefile-access
+failure; the full suite above passed with the required filesystem access.
+See [required reference artifacts and audit-only settings](ssl_content_identity.md).
+
 # Real SSL provenance artifact audit - 2026-10-29
 
 The successful SSL and failed fine-tuning session directories are now supplied

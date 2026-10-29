@@ -200,3 +200,6 @@ metrics and workflow ordering. Conditional real Mamba GPU smoke tests remain
 available. The original encoder's integrity is now verified from local artifacts;
 live Kaggle provenance and both real GPU smokes still must pass before full runs.
 No fine-tuning scores are claimed here.
+
+See [full training content equivalence](ssl_content_identity.md) for the opt-in,
+checkpoint-authenticated full-population proof required for a sole stat-signature mismatch.

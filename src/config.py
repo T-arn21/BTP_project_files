@@ -65,6 +65,7 @@ class ExperimentConfig:
     initial_checkpoint: str | None = None  # explicit weights-only start; not exact optimizer resume
     ssl_encoder_checkpoint: str | None = None
     ssl_encoder_sha256: str | None = None
+    ssl_reference_cache: str | None = None  # explicit original full SSL signals.npy; content audit opt-in
     patience: int = 15
     min_delta: float = 1e-4
     seed: int = 42
@@ -111,4 +112,5 @@ def checkpoint_config_matches(saved, current):
     saved.setdefault("initial_checkpoint", None)
     saved.setdefault("ssl_encoder_checkpoint", None)
     saved.setdefault("ssl_encoder_sha256", None)
+    saved.setdefault("ssl_reference_cache", None)
     return saved == (asdict(current) if isinstance(current, ExperimentConfig) else current)

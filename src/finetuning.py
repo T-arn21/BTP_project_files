@@ -110,12 +110,31 @@ def compare_ssl_provenance(state, config, data, export_evidence=None):
     except (OSError, ValueError) as exc:
         policy_actual["current_identity_computed"] = False
         errors["current_preprocessing_identity"] = str(exc)
-    return comparison_report(expected, actual, policy_expected, policy_actual,
+    report = comparison_report(expected, actual, policy_expected, policy_actual,
         source_export=export_evidence or {}, computation_errors=errors,
         current_supervised_splits={k: list(map(int, v)) for k, v in data.splits.items()},
         current_diagnostic_only=data.provenance["diagnostic_only"], class_names=data.class_names,
         population_scope="SSL ID/signature comparison uses all official training folds before label exclusions; supervised subsets are recorded separately",
         intentionally_different_controls={k: dict(expected_ssl=state["data_config"].get(k), actual_supervised=asdict(data.config).get(k)) for k in sorted(ignored)})
+
+    # Content migration is opt-in and only eligible for the sole stat-digest
+    # difference. Never mask a root/version/code/split/normalization mismatch.
+    if config.ssl_reference_cache:
+        field = "preprocessing_identity.raw_file_stats_sha256"
+        eligible = len(report["mismatches"]) == 1 and report["mismatches"][0]["field"] == field
+        if eligible:
+            from .content_identity import verify_training_content
+            evidence = verify_training_content(state, data, actual["preprocessing_identity"], config.ssl_reference_cache)
+            report["content_equivalence"] = evidence
+            if evidence["verified"]:
+                report["mismatches"][0].update(accepted=True, compatibility_evidence=evidence)
+                report.update(status="passed_verified_training_content", blocking_mismatch_count=0,
+                              compatibility_policy="sole raw-file stat difference; entire authenticated SSL training waveform content verified; all other checks exact")
+        else:
+            report["content_equivalence"] = dict(verified=False, attempted=False,
+                reason="Requires exactly one mismatch: preprocessing_identity.raw_file_stats_sha256; all other checks must pass")
+    return report
+
 
 
 def initialize_ssl_backbone(model, config, data, report_dir=None):
@@ -150,7 +169,8 @@ def initialize_ssl_backbone(model, config, data, report_dir=None):
         raise ValueError(f"SSL export lacks required transfer provenance: {exc}") from exc
     proof.update(mode="ssl_backbone_finetuning", task=config.task, class_names=data.class_names,
                  provenance_comparison_status=report["status"],
-                 accepted_path_aliases=[d for d in report["mismatches"] if d["accepted"]],
+                 accepted_path_aliases=[d for d in report["mismatches"] if d["accepted"] and d["field"].endswith((".root", ".data_dir"))],
+                 content_equivalence=report.get("content_equivalence"),
                  verified_ssl_provenance=source, source_model_config=state["model_config"],
                  provenance_verified=True, transferred_parameter_names=sorted(transferred),
                  freshly_initialized_parameter_names=sorted(fresh),

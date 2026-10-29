@@ -153,3 +153,6 @@ an independent later opt-in; no full training was launched for this fix.
 
 Normal smoke/full paths also always save the same comparison JSON in their task
 folder, including when initialization rejects before the first batch.
+
+See [full training content equivalence](ssl_content_identity.md) for the opt-in,
+checkpoint-authenticated full-population proof required for a sole stat-signature mismatch.

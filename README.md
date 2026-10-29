@@ -14,6 +14,9 @@ runs. See [required checkpoint files and switches](docs/ssl_finetuning.md).
 Provenance rejections now save complete expected/actual field comparisons before
 any updates. [The provenance-only audit](docs/ssl_provenance_diagnostics.md) collects
 both task reports without constructing a fine-tuning model or optimizer.
+A sole filesystem-stat mismatch can be accepted only after an opt-in
+[full training content equivalence audit](docs/ssl_content_identity.md) against
+the checkpoint-authenticated original SSL cache; all other provenance gates remain exact.
 
 - `04_btp_experiments.ipynb`: development reference, preserved.
 - `ecg-xl-btp.ipynb`: user's actual Kaggle attempt code, preserved. It has no
