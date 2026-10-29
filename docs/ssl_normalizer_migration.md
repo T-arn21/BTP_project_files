@@ -1,5 +1,8 @@
 # Normalizer diagnosis and authenticated source reuse
 
+Current notebook defaults now select [explicit SSL-cache-backed GPU smoke tests](ssl_cache_backed_finetuning.md).
+This guide describes the separate independent audit/migration workflow.
+
 ## Evidence and limits
 
 The supplied CPU audit session `20261029T135756Z_bcc506df` has exactly three

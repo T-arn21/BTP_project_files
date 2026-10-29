@@ -172,7 +172,7 @@ def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_pat
         RUN_SSL_FINETUNE_SUPERCLASS=mode in {"full_after_smokes", "missing_smoke", "failed_smoke", "audit_conflict"},
         RUN_SSL_FINETUNE_SUBCLASS=mode in {"full_after_smokes", "missing_smoke", "failed_smoke", "audit_conflict"},
         SSL_FINETUNE_PROVENANCE_ONLY=mode in {"provenance_only", "provenance_mismatch", "audit_conflict"},
-        SSL_FINETUNE_REFERENCE_CACHE="", SSL_FINETUNE_NORMALIZER_POLICY="strict",
+        SSL_FINETUNE_REFERENCE_CACHE="", SSL_FINETUNE_NORMALIZER_POLICY="strict", SSL_FINETUNE_DATA_MODE="independent",
         SSL_FINETUNE_ENCODER_PATH=str(path), SSL_FINETUNE_ENCODER_SHA256=cfg.ssl_encoder_sha256,
         MODEL_SETTINGS=asdict(cfg.model), AUGMENT=cfg.data.augment, DATASET_VERSION=cfg.data.dataset_version)
     settings["SSL_FINETUNE_SETTINGS"].update(epochs=1, diagnostic_batches=1)

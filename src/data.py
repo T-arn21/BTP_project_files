@@ -127,7 +127,7 @@ class PTBXLData:
         return result
 
 
-def load_ptbxl(task="superclass", data_dir=None, config=None, seed=42, reader=read_waveform, diagnostic_limits=None):
+def load_ptbxl(task="superclass", data_dir=None, config=None, seed=42, reader=read_waveform, diagnostic_limits=None, ssl_cache_source=None):
     """Read metadata and fit shared normalization. Does not download any files.
 
     Stats use all official training records before task-specific exclusions, so
@@ -159,6 +159,10 @@ def load_ptbxl(task="superclass", data_dir=None, config=None, seed=42, reader=re
         splits = {k: splits[k][:limit] for k, limit in diagnostic_limits.items()}
         log_progress(f"DIAGNOSTIC ONLY: limited records { {k: len(v) for k, v in splits.items()} }; no test evaluation")
     log_progress(f"Metadata/labels/patient audit ready in {perf_counter() - start:.2f}s")
+    if ssl_cache_source is not None:
+        from .ssl_cache_backed import prepare_cache_backed_data
+        return prepare_cache_backed_data(metadata, labels, splits, missing, config, seed, reader,
+                                         diagnostic_limits, ssl_cache_source)
     identity = preprocessing_identity(root, metadata, config, reader)
     fit_ids = select_normalization_ids(original_splits["train"], config)
     normalizer = SignalNormalizer()

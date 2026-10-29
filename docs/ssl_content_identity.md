@@ -1,5 +1,8 @@
 # Full training content equivalence for SSL fine-tuning
 
+Current notebook defaults now select [explicit SSL-cache-backed GPU smoke tests](ssl_cache_backed_finetuning.md).
+This guide describes the separate independent audit/migration workflow.
+
 The historical `raw_file_stats_sha256` is SHA256 over consecutive UTF-8 strings,
 in metadata row order, for each record's `.hea` then `.dat`:
 `{relative_filename}{suffix}:{st_size}:{st_mtime_ns}` or

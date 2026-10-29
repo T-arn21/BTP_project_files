@@ -3,10 +3,11 @@
 The repository supports supervised Mamba on PTB-XL and **Milestone 2 masked
 waveform reconstruction SSL**, using the same encoder and preprocessing.
 Use **`05_btp_kaggle_final.ipynb`** as the primary Kaggle execution notebook.
-Its current defaults perform a CPU-only SSL provenance audit; select Accelerator None.
-GPU smokes and all training remain disabled until explicitly configured.
-See [normalizer evidence and migration gates](docs/ssl_normalizer_migration.md) for
-the latest confirmed CPU waveform differences and the report-only audit settings.
+Its current defaults run both **SSL-cache-backed GPU smokes only**, using the original
+authenticated training cache and normalizer. Full fine-tuning and baseline runs stay disabled.
+See [exact inputs and smoke settings](docs/ssl_cache_backed_finetuning.md).
+The separate independent-audit mode retains strict byte-equivalence checks; see
+[normalizer evidence](docs/ssl_normalizer_migration.md) for the confirmed CPU differences.
 No extra encoder architectures are added. SSL pretraining is opt-in and full
 pretraining has not been executed here. See [SSL settings and outputs](docs/ssl_pretraining.md).
 
@@ -18,7 +19,7 @@ runs. See [required checkpoint files and switches](docs/ssl_finetuning.md).
 Provenance rejections now save complete expected/actual field comparisons before
 any updates. [The provenance-only audit](docs/ssl_provenance_diagnostics.md) collects
 both task reports without constructing a fine-tuning model or optimizer.
-A sole filesystem-stat mismatch can be accepted only after an opt-in
+In independent mode, a sole filesystem-stat mismatch can be accepted only after an opt-in
 [full training content equivalence audit](docs/ssl_content_identity.md) against
 the checkpoint-authenticated original SSL cache; all other provenance gates remain exact.
 

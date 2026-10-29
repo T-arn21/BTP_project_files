@@ -1,3 +1,47 @@
+# Explicit SSL-cache-backed fine-tuning - 2026-10-29
+
+Added the opt-in ssl_data_mode="ssl_cache_backed" route. It authenticates the
+completed encoder, original full cache identity/IDs/payload SHA and original
+normalizer, then reads training data from that cache. It never rebuilds live
+training signals, fits a normalizer or invokes independent waveform equivalence.
+Current raw processing is restricted to requested validation/test records with
+exact preprocessing configuration and the original normalizer. The data source,
+original training identity and held-out identity have explicit separate scopes.
+Canonical labels, model/data settings, complete training/held-out/patient IDs,
+normalization fit provenance and dataset version/metadata remain strict gates.
+
+The notebook now requests both GPU smokes only (batch2, two train/validation
+batches, one epoch, AMP/augmentation off); all full tasks remain disabled.
+Outputs explicitly declare ssl_cache_backed_finetuning and no independent
+waveform-reproduction claim. New runs do not overwrite original artifacts.
+
+Focused suite: **18 passed in 16.06s**, including both complete worker smoke
+stages with CPU adapter doubles, no training raw reads/refits/equivalence calls,
+original normalizer/cache tensor values, canonical labels/disjoint patients,
+corrupted/missing cache, incorrect encoder hash, source-manifest mutations,
+wrong dataset version/model/metadata/training IDs, altered labels/normalization,
+full held-out separation and effective source provenance in smoke checkpoints.
+The existing independent audit and baseline regressions remain in the full suite.
+
+Read-only real artifact check with the new authenticator passed for the original
+pinned epoch-20 encoder and original 17,441-record cache, payload
+SHA a507c0a89f768485ffb13ff2cd3a538867669933baa2bc1861d35a95d987b9c3.
+Original normalizer shape/finite/positive-std validation also passed. No raw
+training waveforms, real model/GPU forward/backward or Kaggle training ran here.
+Notebook schema, all code-cell syntax and exact smoke-only flag checks passed.
+
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-cache-backed-final --tb=short
+```
+
+**186 passed, 6 skipped, 5 warnings in 66.17s.** Skips require CUDA Mamba;
+warnings are existing scheduler notices. Source architecture and all pre-existing
+independent provenance/baseline checks remain covered. See the exact notebook
+inputs and settings in ssl_cache_backed_finetuning.md. Real GPU smokes remain
+pending Kaggle execution; no successful real smoke or full benchmark is claimed.
+
 # SSL normalizer investigation and independent content proof - 2026-10-29
 
 Inspected CPU session 20261029T135756Z_bcc506df from the newly supplied results_3

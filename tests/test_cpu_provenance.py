@@ -12,13 +12,14 @@ def notebook_settings():
     nb = json.loads((Path(__file__).parents[1] / "05_btp_kaggle_final.ipynb").read_text())
     namespace = {}
     exec("".join(nb["cells"][1]["source"]), namespace)
+    namespace["SETTINGS"].update(SSL_FINETUNE_PROVENANCE_ONLY=True, SSL_FINETUNE_DATA_MODE="independent")
     return namespace
 
 
 def test_notebook_cpu_audit_defaults():
     from src.unattended import cpu_provenance_only
     namespace = notebook_settings()
-    assert namespace["NEED_GPU"] is False
+    # CPU mode is explicitly configured; notebook defaults now request GPU smokes.
     settings = namespace["SETTINGS"]
     assert cpu_provenance_only(settings)
     assert settings["SSL_FINETUNE_NORMALIZER_POLICY"] == "strict"

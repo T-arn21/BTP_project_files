@@ -104,18 +104,36 @@ def compare_ssl_provenance(state, config, data, export_evidence=None):
         errors["normalizer"] = str(exc)
     try:
         # Exact original SSL scope: all official training IDs BEFORE label exclusions.
-        actual["preprocessing_identity"] = preprocessing_identity(Path(data.config.data_dir), data.metadata.loc[train],
-                                                                  data.config, data.datasets["train"].reader)
+        if config.ssl_data_mode == "ssl_cache_backed":
+            actual["preprocessing_identity"] = data.provenance["preprocessing_identity"]
+        else:
+            actual["preprocessing_identity"] = preprocessing_identity(Path(data.config.data_dir), data.metadata.loc[train],
+                                                                      data.config, data.datasets["train"].reader)
         policy_actual["current_identity_computed"] = True
     except (OSError, ValueError) as exc:
         policy_actual["current_identity_computed"] = False
         errors["current_preprocessing_identity"] = str(exc)
+    cache_backed_evidence = None
+    if config.ssl_data_mode == "ssl_cache_backed":
+        from .ssl_cache_backed import cache_backed_comparison_inputs
+        checks, cache_backed_evidence = cache_backed_comparison_inputs(state, config, data, expected, actual, export_evidence)
+        policy_expected["cache_backed"] = {key: True for key in checks}
+        policy_actual["cache_backed"] = checks
     report = comparison_report(expected, actual, policy_expected, policy_actual,
         source_export=export_evidence or {}, computation_errors=errors,
         current_supervised_splits={k: list(map(int, v)) for k, v in data.splits.items()},
         current_diagnostic_only=data.provenance["diagnostic_only"], class_names=data.class_names,
         population_scope="SSL ID/signature comparison uses all official training folds before label exclusions; supervised subsets are recorded separately",
         intentionally_different_controls={k: dict(expected_ssl=state["data_config"].get(k), actual_supervised=asdict(data.config).get(k)) for k in sorted(ignored)})
+
+    if config.ssl_data_mode == "ssl_cache_backed":
+        report["ssl_cache_backed"] = cache_backed_evidence
+        report["experiment_kind"] = "ssl_cache_backed_finetuning"
+        report["population_scope"] = "original cache covers every official training ECG including unlabeled records; current held-out signatures have a separate scope"
+        report["compatibility_policy"] = "explicit original-SSL-artifact training; original raw stats retained/authenticated, held-out stats recorded separately; no independent training waveform reproduction"
+        if not report["blocking_mismatch_count"]:
+            report["status"] = "passed_authenticated_ssl_cache_backed"
+        return report
 
     # Waveform verification is independent of the normalizer value comparison.
     # Other source/split/preprocessing gates must still pass before any data audit.
@@ -168,7 +186,7 @@ def compare_ssl_provenance(state, config, data, export_evidence=None):
 
 def write_ssl_comparison(path, report):
     write_json(path, report)
-    for key in ("content_equivalence", "normalization_analysis", "normalizer_migration", "numerical_runtime"):
+    for key in ("content_equivalence", "normalization_analysis", "normalizer_migration", "numerical_runtime", "ssl_cache_backed"):
         if key in report:
             write_json(Path(path).with_name(key + ".json"), report[key])
 
@@ -210,6 +228,8 @@ def initialize_ssl_backbone(model, config, data, report_dir=None):
                  accepted_path_aliases=[d for d in report["mismatches"] if d["accepted"] and d["field"].endswith((".root", ".data_dir"))],
                  content_equivalence=report.get("content_equivalence"),
                  normalizer_migration=report.get("normalizer_migration"),
+                 experiment_kind=report.get("experiment_kind", "independent_waveform_finetuning"),
+                 ssl_cache_backed=report.get("ssl_cache_backed"),
                  verified_ssl_provenance=source, source_model_config=state["model_config"],
                  provenance_verified=True, transferred_parameter_names=sorted(transferred),
                  freshly_initialized_parameter_names=sorted(fresh),
@@ -232,7 +252,11 @@ def run_provenance_audit(config):
     try:
         state, proof = load_completed_ssl_export(config.ssl_encoder_checkpoint, config.ssl_encoder_sha256)
         limits = {k: config.batch_size * config.diagnostic_batches for k in ("train", "val")}
-        data = load_ptbxl(config.task, config=config.data, seed=config.seed, diagnostic_limits=limits)
+        if config.ssl_data_mode == "ssl_cache_backed":
+            from .ssl_cache_backed import load_cache_backed_data
+            data = load_cache_backed_data(config, diagnostic_limits=limits)
+        else:
+            data = load_ptbxl(config.task, config=config.data, seed=config.seed, diagnostic_limits=limits)
         write_json(out / "config.json", asdict(config))
         write_json(out / "environment.json", environment_info())
         write_json(out / "data_manifest.json", dict(task=config.task, provenance=data.provenance,
@@ -253,6 +277,8 @@ def run_provenance_audit(config):
         write_json(out / "status.json", summary)
         return {"output_dir": str(out.resolve()), "summary": summary}
     except Exception as exc:
+        if hasattr(exc, "report"):
+            write_ssl_comparison(report_path, exc.report)
         write_json(out / "status.json", dict(status="failed", mode="provenance_only", optimizer_steps=0, error=str(exc),
                                             provenance_report=str(report_path) if report_path.is_file() else None))
         raise

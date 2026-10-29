@@ -1,5 +1,8 @@
 # SSL-pretrained Mamba classification fine-tuning
 
+Current notebook defaults now select [explicit SSL-cache-backed GPU smoke tests](ssl_cache_backed_finetuning.md).
+This guide describes the separate independent audit/migration workflow.
+
 This path initializes the existing 5-superclass or 23-subclass Mamba classifier
 from the completed 20-epoch reconstruction backbone. Both tasks use the existing
 patient-disjoint folds, labels, waveform preprocessing, normalization, weighted

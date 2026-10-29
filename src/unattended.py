@@ -215,6 +215,7 @@ def run_worker(settings):
             ft_config = replace(config, ssl_encoder_checkpoint=path, ssl_encoder_sha256=checksum,
                                 ssl_reference_cache=settings.get("SSL_FINETUNE_REFERENCE_CACHE") or None,
                                 ssl_normalizer_policy=settings.get("SSL_FINETUNE_NORMALIZER_POLICY", "strict"),
+                                ssl_data_mode=settings.get("SSL_FINETUNE_DATA_MODE", "independent"),
                                 **settings.get("SSL_FINETUNE_SETTINGS", {}))
             # Both actual GPU smokes must finish before either full task starts.
             stages = [(task, True) for task in ("superclass", "subclass")] + [(task, False) for task in full_tasks]

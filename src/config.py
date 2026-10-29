@@ -66,6 +66,7 @@ class ExperimentConfig:
     ssl_encoder_checkpoint: str | None = None
     ssl_encoder_sha256: str | None = None
     ssl_reference_cache: str | None = None  # explicit original full SSL signals.npy; content audit opt-in
+    ssl_data_mode: str = "independent"  # or explicit ssl_cache_backed experiment
     ssl_normalizer_policy: str = "strict"  # authenticated_source requires full content proof and reproducible live fit
     patience: int = 15
     min_delta: float = 1e-4
@@ -97,6 +98,11 @@ class ExperimentConfig:
             raise ValueError("pos_weight_max must be finite and positive")
         if self.numerical_stability_mode == "conservative" and (self.mixed_precision or self.learning_rate > 1e-4):
             raise ValueError("Conservative mode requires mixed_precision=False and learning_rate <= 1e-4; settings are never silently changed")
+        if self.ssl_data_mode not in {"independent", "ssl_cache_backed"}:
+            raise ValueError("ssl_data_mode must be independent or ssl_cache_backed")
+        if self.ssl_data_mode == "ssl_cache_backed":
+            if not (self.ssl_encoder_checkpoint and self.ssl_reference_cache) or self.ssl_normalizer_policy != "strict":
+                raise ValueError("ssl_cache_backed requires a pinned encoder, original reference cache and strict policy for all remaining fields")
         if self.ssl_normalizer_policy not in {"strict", "authenticated_source"}:
             raise ValueError("ssl_normalizer_policy must be strict or authenticated_source")
         if self.ssl_normalizer_policy == "authenticated_source" and not (self.ssl_encoder_checkpoint and self.ssl_reference_cache):
@@ -119,4 +125,5 @@ def checkpoint_config_matches(saved, current):
     saved.setdefault("ssl_encoder_sha256", None)
     saved.setdefault("ssl_reference_cache", None)
     saved.setdefault("ssl_normalizer_policy", "strict")
+    saved.setdefault("ssl_data_mode", "independent")
     return saved == (asdict(current) if isinstance(current, ExperimentConfig) else current)

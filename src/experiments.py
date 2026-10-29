@@ -60,8 +60,12 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 log_progress(f"Starting {purpose} {cfg.task}; output={out.resolve()}")
                 write_json(out / "status.json", dict(status="running", stage=stage, purpose=purpose, benchmark_result=False))
                 if prepared_data is None:
-                    data = load_ptbxl(cfg.task, data_dir=data_dir, config=cfg.data,
-                                     seed=cfg.seed, diagnostic_limits=diagnostic_limits(cfg))
+                    if cfg.ssl_data_mode == "ssl_cache_backed":
+                        from .ssl_cache_backed import load_cache_backed_data
+                        data = load_cache_backed_data(cfg, diagnostic_limits=diagnostic_limits(cfg))
+                    else:
+                        data = load_ptbxl(cfg.task, data_dir=data_dir, config=cfg.data,
+                                         seed=cfg.seed, diagnostic_limits=diagnostic_limits(cfg))
                 else:
                     data = prepared_data
                     expected = replace(cfg.data, data_dir=str(Path(cfg.data.data_dir).resolve()))
@@ -154,6 +158,7 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     _, table = evaluate(yt, pt, data.class_names, thresholds)
                 plot_results(history, table, out / "figures")
                 summary = dict(model_name=cfg.model_name, task=cfg.task, best_epoch=best_epoch,
+                               experiment_kind="ssl_cache_backed_finetuning" if cfg.ssl_data_mode == "ssl_cache_backed" else "independent_waveform_experiment",
                                initialization="ssl_backbone_fresh_pool_and_head" if cfg.ssl_encoder_checkpoint else ("checkpoint_weights_only" if cfg.initial_checkpoint else "fresh"),
                                source_checkpoint=cfg.ssl_encoder_checkpoint or cfg.initial_checkpoint,
                                ssl_encoder_sha256=cfg.ssl_encoder_sha256,
@@ -172,6 +177,9 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 return {"output_dir": str(out.resolve()), "summary": summary, "history": history,
                         "class_names": data.class_names, "thresholds": thresholds}
             except Exception as exc:
+                if hasattr(exc, "report"):
+                    from .finetuning import write_ssl_comparison
+                    write_ssl_comparison(out / "ssl_provenance_comparison.json", exc.report)
                 traceback.print_exc()
                 write_json(out / "status.json", dict(status="failed", stage=stage, purpose=purpose,
                                                      benchmark_result=False, error=str(exc)))
