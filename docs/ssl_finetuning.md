@@ -38,11 +38,12 @@ If present, `history.csv`, `status.json` and `split_provenance.json` are also
 validated and must agree; they are optional duplicates/completion evidence.
 The authenticated encoder itself contains the required source split provenance.
 
-The source dataset web pages were inaccessible to the local web tool, and its
-read-only file-list API returned HTTP 403. Thus the actual remote encoder has
-not been independently downloaded/hashed here. The provided path/checksum are
-pinned, and actual integrity/provenance verification is mandatory during the
-Kaggle smoke. The user's reported 20-epoch completion is not a new local result.
+Initial remote access returned HTTP 403. Subsequently supplied local artifacts
+were audited read-only: the epoch-20 encoder SHA256, finite weights and completion
+metadata are verified, and their hashes match the failed run's recorded source
+verification. See [the artifact audit](ssl_provenance_artifact_audit.md) for the
+raw-file-stat rejection; live provenance checks remain mandatory. This is saved
+execution evidence, not 20 epochs rerun locally.
 
 ## Transfer policy
 
@@ -196,5 +197,6 @@ resume an old supervised experiment or inject the SSL weights into baseline runs
 Local tests use clearly identified synthetic checkpoint evidence and CPU model
 doubles to verify strict gates, fresh pools/heads, both labels/tasks, export
 metrics and workflow ordering. Conditional real Mamba GPU smoke tests remain
-available. Actual checkpoint integrity/live Kaggle provenance and both real GPU
-smokes remain to be executed on Kaggle; no fine-tuning scores are claimed here.
+available. The original encoder's integrity is now verified from local artifacts;
+live Kaggle provenance and both real GPU smokes still must pass before full runs.
+No fine-tuning scores are claimed here.

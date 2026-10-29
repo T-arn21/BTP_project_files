@@ -1,11 +1,13 @@
 # Diagnosing the SSL fine-tuning provenance rejection
 
 Reported session: `20261029T052515Z_51f75e15`, superclass smoke, before training.
-Its working outputs are not available in this workspace and no downloadable copy
-was supplied. The original encoder path/SHA256 are known, but its remote export
-was not readable here (earlier Kaggle API request: HTTP 403). **The exact historic
-expected/actual values cannot be recovered from the generic exception alone.**
-Do not treat a suspected mount-path or timestamp difference as a confirmed cause.
+The artifacts were initially unavailable, motivating the diagnostic release.
+They have since been supplied and inspected read-only: see the
+[actual artifact audit](ssl_provenance_artifact_audit.md). The root/version,
+metadata/code hashes, environment and normalization match exactly. The rejected
+field is deduced to be the raw file-stat signature; the actual historical
+training-only digest was not persisted. This is not a mount-alias mismatch.
+Timestamp-only drift remains unproven and strict rejection is retained.
 
 ## What source inspection establishes
 
@@ -88,9 +90,8 @@ name or matching metadata hashes alone do not establish this alias. Failed
 filesystem verification remains a rejection. A path alias plus any other mismatch
 is also rejected; no unrelated field is ignored or normalized.
 
-This policy is justified by actual filesystem identity, not a claim about what
-happened in the reported historical run. No such equivalence has been established
-for session 20261029T052515Z_51f75e15 without its values/runtime.
+This policy is justified by actual filesystem identity. The real artifact audit
+finds identical root strings in this session, so it does not apply to that failure.
 
 ## What must still match exactly
 

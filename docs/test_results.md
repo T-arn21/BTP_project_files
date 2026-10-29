@@ -1,3 +1,41 @@
+# Real SSL provenance artifact audit - 2026-10-29
+
+The successful SSL and failed fine-tuning session directories are now supplied
+locally. Read-only audit independently verified the pinned epoch-20 encoder SHA,
+184 finite encoder tensors, config/summary/checkpoint consistency and full-epoch
+completion evidence. Encoder/config/summary hashes match the failed session's
+saved source-verification record. All 88 input files were hashed/size/mtime
+recorded and rechecked unchanged after inspection.
+
+Dataset root/version, metadata/code hashes, reader/library versions, full saved
+environments, model config, normalization, all 1,000 fit IDs and fit settings
+match. The rejected field is isolated by elimination to raw_file_stats_sha256.
+The failed training-only value was not saved. Its cache's available digest is
+all-fold scope and must not be mislabeled as the failing training-only value.
+
+Source and current cache payload checksums pass. All 1,004 common training ECGs
+are bitwise equal (maximum difference zero), covering all normalization fit IDs.
+The other 16,437 training ECGs have no current cached counterpart. Timestamp-only
+drift/full-population equivalence is unproved, so strict rejection remains; no
+encoder or validation acceptance policy was changed for this case.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-artifact-scope-release --tb=short
+```
+
+**122 passed, 6 skipped, 5 warnings in 48.63s.** Skips require CUDA Mamba; warnings
+are the existing scheduler notice. The new regression confirms an all-fold
+supervised cache digest differs legitimately from SSL's training-only digest,
+and the live comparison correctly recomputes the latter, including unlabeled
+training records excluded from classification. The previous 121 checks still pass.
+
+No real GPU smoke or training was launched. Numeric operations on real artifacts
+only loaded finite weights and compared saved statistics/cached waveforms.
+See ssl_provenance_artifact_audit.md for evidence and the acceptance decision.
+
+---
+
 # SSL provenance diagnostics and verified directory aliases - 2026-10-29
 
 Reported failure: session 20261029T052515Z_51f75e15, superclass smoke, before

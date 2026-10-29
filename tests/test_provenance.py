@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import torch
 import pytest
-from test_finetuning import source, ClassifierDouble
+from test_finetuning import source, ClassifierDouble, make_export
 from conftest import synthetic_reader
 from src.cache import digest_file
 from src.data import load_ptbxl
@@ -148,3 +148,28 @@ def test_failed_experiment_saves_current_metadata_and_structured_comparison(sour
     assert failure["mismatches"][0]["field"] == "preprocessing_identity.raw_file_stats_sha256"
     assert not (out / "last.pth").exists()
     assert digest_file(path) == cfg.ssl_encoder_sha256
+
+
+def test_all_fold_cache_signature_is_not_compared_to_ssl_training_signature(data_config, tmp_path):
+    """The real failed artifacts save an all-fold digest, not its lost train-only digest."""
+    import pandas as pd
+    from src.config import ModelConfig, ExperimentConfig
+    from src.finetuning import compare_ssl_provenance
+    metadata_path = Path(data_config.data_dir) / "ptbxl_database.csv"
+    metadata = pd.read_csv(metadata_path)
+    metadata.loc[0, "scp_codes"] = "{}"  # retain for SSL; exclude from labeled classification
+    metadata.to_csv(metadata_path, index=False)
+    model_config = ModelConfig(embed_dim=8, hidden_dim=8, n_layers=1, dropout=0)
+    path, sha = make_export(data_config, tmp_path / "source", ClassifierDouble(5), model_config)
+    state = torch.load(path, weights_only=True)
+    cfg = ExperimentConfig(data=data_config, model=model_config, ssl_encoder_checkpoint=str(path), ssl_encoder_sha256=sha)
+    data = load_ptbxl(config=data_config, reader=synthetic_reader)
+    original_train = state["provenance"]["preprocessing_identity"]["raw_file_stats_sha256"]
+    saved_all_fold = data.provenance["preprocessing_identity"]["raw_file_stats_sha256"]
+    assert original_train != saved_all_fold
+    assert len(data.splits["train"]) == 23
+    report = compare_ssl_provenance(state, cfg, data)
+    assert report["status"] == "passed_exact"
+    assert report["actual"]["preprocessing_identity"]["raw_file_stats_sha256"] == original_train
+    assert len(report["actual"]["used_train_ids"]) == 24
+    assert len(report["current_supervised_splits"]["train"]) == 23
