@@ -178,6 +178,9 @@ def run_worker(settings):
             stage = "SSL fine-tuning source validation"
             summary["stage"] = stage
             full_tasks = [task for task in ("superclass", "subclass") if settings.get(f"RUN_SSL_FINETUNE_{task.upper()}", False)]
+            provenance_only = settings.get("SSL_FINETUNE_PROVENANCE_ONLY", False)
+            if provenance_only and full_tasks:
+                raise ValueError("SSL_FINETUNE_PROVENANCE_ONLY requires both full fine-tuning flags False")
             for task in ("superclass", "subclass"):
                 summary["experiments"][f"ssl_finetune_{task}"] = {"status": "pending" if task in full_tasks else "disabled_by_configuration"}
             if not settings.get("RUN_SSL_FINETUNE_SMOKE", False):
@@ -197,21 +200,27 @@ def run_worker(settings):
             # Both actual GPU smokes must finish before either full task starts.
             stages = [(task, True) for task in ("superclass", "subclass")] + [(task, False) for task in full_tasks]
             for task, smoke in stages:
-                key = f"ssl_finetune_{task}" + ("_smoke" if smoke else "")
+                key = f"ssl_finetune_{task}" + ("_provenance_audit" if provenance_only else ("_smoke" if smoke else ""))
                 stage = key
                 summary["stage"] = stage
                 summary["experiments"][key] = {"status": "running"}
                 save_summary(summary_path, summary)
                 task_config = replace(ft_config, task=task, diagnostic=smoke,
                     epochs=1 if smoke else ft_config.epochs,
-                    output_root=str(session / "ssl_finetuning" / ("smoke" if smoke else "full")))
+                    output_root=str(session / "ssl_finetuning" / ("provenance_audit" if provenance_only else ("smoke" if smoke else "full"))))
                 try:
                     with stage_log(session, stage):
-                        result = run_experiment(config=task_config)
+                        if provenance_only:
+                            from .finetuning import run_provenance_audit
+                            result = run_provenance_audit(task_config)
+                        else:
+                            result = run_experiment(config=task_config)
                         directory = Path(result["output_dir"])
-                        required = ["ssl_initialization.json", "best.pth", "last.pth", "history.csv", "summary.json",
+                        required = ["ssl_initialization.json", "ssl_provenance_comparison.json", "best.pth", "last.pth", "history.csv", "summary.json",
                                     "config.json", "data_manifest.json", "numerical_settings.json", "figures/loss_curves.png"]
                         required += ["ssl_smoke_gradients.json"] if smoke else ["thresholds.json", "validation/predictions.csv", "test/metrics.json", "test/predictions.csv"]
+                        if provenance_only:
+                            required = ["ssl_provenance_comparison.json", "config.json", "data_manifest.json", "summary.json", "status.json"]
                         missing = [name for name in required if not (directory / name).is_file()]
                         if missing:
                             raise RuntimeError(f"Incomplete SSL fine-tuning exports: {missing}")
@@ -220,6 +229,10 @@ def run_worker(settings):
                     passed(key)
                 except Exception as exc:
                     summary["experiments"][key] = {"status": "failed", "error": str(exc)}
+                    if provenance_only:
+                        summary["errors"][key] = str(exc)
+                        save_summary(summary_path, summary)
+                        continue  # audit both tasks; never initialize a fine-tuning model
                     if smoke:
                         for pending in full_tasks:
                             summary["experiments"][f"ssl_finetune_{pending}"] = {"status": "blocked_by_smoke_failure"}

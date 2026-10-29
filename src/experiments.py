@@ -75,6 +75,12 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 metadata = {"task": cfg.task, "normalizer": data.normalizer.state_dict(),
                             "provenance": data.provenance,
                             "splits": {k: list(map(int, ids)) for k, ids in data.splits.items()}}
+                if cfg.ssl_encoder_checkpoint:
+                    # Retain the live metadata even if transfer validation fails.
+                    write_json(out / "config.json", asdict(cfg))
+                    write_json(out / "environment.json", environment_info())
+                    write_json(out / "data_manifest.json", {**metadata, "class_names": data.class_names,
+                                                           "excluded_unlabeled_ids": data.dropped_ids})
                 stage = "model and DataLoader initialization"
                 log_progress(stage)
                 model = create_model(cfg.model_name, len(data.class_names), cfg.model)
@@ -84,9 +90,12 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     from .finetuning import initialize_ssl_backbone
                     stage = "SSL encoder SHA256/provenance validation and backbone transfer"
                     try:
-                        proof = initialize_ssl_backbone(model, cfg, data)
+                        proof = initialize_ssl_backbone(model, cfg, data, report_dir=out)
                     except (ValueError, RuntimeError) as exc:
-                        write_json(out / "checkpoint_failure.json", {"checkpoint": cfg.ssl_encoder_checkpoint, "error": str(exc)})
+                        failure = {"checkpoint": cfg.ssl_encoder_checkpoint, "error": str(exc)}
+                        if hasattr(exc, "report"):
+                            failure.update(provenance_report=exc.report_path, mismatches=exc.report["mismatches"])
+                        write_json(out / "checkpoint_failure.json", failure)
                         raise
                     write_json(out / "ssl_initialization.json", proof)
                 if cfg.initial_checkpoint and not resume_from:

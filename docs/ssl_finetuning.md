@@ -91,6 +91,13 @@ matching environment/input. Never edit the source checkpoint/manifest to force
 acceptance. Missing files, hash mismatch and incompatible provenance fail clearly;
 there is no fallback to fresh weights, a smoke encoder or supervised checkpoints.
 
+Field-by-field expected/actual values now persist in ssl_provenance_comparison.json,
+including after failed initialization. A path spelling can differ only if both
+existing names are proven to be the same directory via filesystem identity and
+every other field is exact. Missing mounts/different copies are still rejected.
+See [provenance diagnosis and zero-step audit mode](ssl_provenance_diagnostics.md)
+for the reported failed session and the safe next-run switches.
+
 ## Next run: both GPU smokes only
 
 Import the latest `05_btp_kaggle_final.ipynb`, enable GPU and Internet, attach

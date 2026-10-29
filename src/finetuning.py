@@ -11,6 +11,7 @@ from .data import build_official_splits
 from .signal import SignalNormalizer
 from .numerics import named_finite
 from .utils import write_json
+from .provenance import comparison_report, comparison_message, ProvenanceMismatchError
 
 
 BACKBONE_PREFIXES = ("input_proj.", "blocks.", "final_norm.")
@@ -62,50 +63,73 @@ def load_completed_ssl_export(path, expected_sha256):
     except (KeyError, TypeError, AttributeError) as exc:
         raise ValueError(f"SSL export lacks required completion evidence: {exc}") from exc
     return state, dict(path=str(path.resolve()), sha256=actual, epoch=20, completion_verified=True,
+                       source_config=config, source_summary=summary,
                        source_config_sha256=digest_file(path.parent / "config.json"),
                        source_summary_sha256=digest_file(path.parent / "summary.json"),
                        additional_evidence_verified=[name for name in ("history.csv", "status.json", "split_provenance.json")
                                                      if (path.parent / name).is_file()])
 
 
-def initialize_ssl_backbone(model, config, data):
-    state, proof = load_completed_ssl_export(config.ssl_encoder_checkpoint, config.ssl_encoder_sha256)
+def compare_ssl_provenance(state, config, data, export_evidence=None):
+    """Collect all differences, including checks formerly hidden by the first failure."""
+    source = state["provenance"]
+    folds = build_official_splits(data.metadata)
+    train = list(map(int, folds["train"]))
+    ignored = {"augment", "unlabeled", "num_workers", "cache_dir", "cache_signals"}
+    expected = dict(model_config=state["model_config"],
+                    data_config={k: v for k, v in state["data_config"].items() if k not in ignored})
+    actual = dict(model_config=asdict(config.model),
+                  data_config={k: v for k, v in asdict(data.config).items() if k not in ignored},
+                  eligible_train_ids=train, used_train_ids=train,
+                  excluded_validation_ids=list(map(int, folds["val"])),
+                  excluded_test_ids=list(map(int, folds["test"])),
+                  train_patient_ids=sorted(map(int, data.metadata.loc[train, "patient_id"].unique())),
+                  normalizer=data.normalizer.state_dict())
+    keys = ("eligible_train_ids", "used_train_ids", "excluded_validation_ids", "excluded_test_ids",
+            "train_patient_ids", "normalizer", "preprocessing_identity", "normalization_record_ids", "normalization_configuration")
+    expected.update({k: source[k] for k in keys if k in source})
+    actual.update({k: data.provenance[k] for k in ("normalization_record_ids", "normalization_configuration") if k in data.provenance})
+    policy_expected = dict(objective="masked_waveform_reconstruction", diagnostic_labels_used=False,
+                           smoke_only=False, patient_separation_verified=True, training_folds=list(range(1, 9)),
+                           normalizer_valid=True, current_identity_computed=True, augment=False)
+    policy_actual = {k: source[k] for k in ("objective", "diagnostic_labels_used", "smoke_only", "patient_separation_verified", "training_folds") if k in source}
+    if "augment" in state["data_config"]:
+        policy_actual["augment"] = state["data_config"]["augment"]
+    errors = {}
     try:
-        if state["model_config"] != asdict(config.model):
-            raise ValueError("SSL model configuration mismatch")
-        source = state["provenance"]
-        folds = build_official_splits(data.metadata)
-        train = list(map(int, folds["train"]))
-        if (source["objective"] != "masked_waveform_reconstruction" or source["diagnostic_labels_used"] is not False or
-                source["smoke_only"] is not False or source["patient_separation_verified"] is not True or
-                source["training_folds"] != list(range(1, 9)) or source["eligible_train_ids"] != train or
-                source["used_train_ids"] != train or len(set(train)) != len(train)):
-            raise ValueError("SSL provenance must include every official training ECG, no diagnostic labels or held-out waveforms")
-        for key, split in (("excluded_validation_ids", "val"), ("excluded_test_ids", "test")):
-            if source[key] != list(map(int, folds[split])):
-                raise ValueError(f"SSL held-out split mismatch: {key}")
-        patients = sorted(map(int, data.metadata.loc[train, "patient_id"].unique()))
-        if source["train_patient_ids"] != patients:
-            raise ValueError("SSL training patient provenance mismatch")
-        # SSL used training-only waveform signatures; comparing the full supervised
-        # signature would compare different populations. Recompute the exact source scope.
-        identity = preprocessing_identity(Path(data.config.data_dir), data.metadata.loc[train], data.config,
-                                          data.datasets["train"].reader)
-        if source["preprocessing_identity"] != identity:
-            raise ValueError("SSL training-only dataset/preprocessing identity mismatch (root, hashes, signatures or versions)")
         SignalNormalizer.from_state_dict(source["normalizer"])
-        if source["normalizer"] != data.normalizer.state_dict():
-            raise ValueError("SSL normalization statistics mismatch")
-        for key in ("normalization_record_ids", "normalization_configuration"):
-            if source[key] != data.provenance[key]:
-                raise ValueError(f"SSL normalization provenance mismatch: {key}")
-        # Intentional differences: supervised augmentation, label-exclusion policy,
-        # worker count and cache storage/population. Waveform semantics must agree.
-        ignored = {"augment", "unlabeled", "num_workers", "cache_dir", "cache_signals"}
-        before = {k: v for k, v in state["data_config"].items() if k not in ignored}
-        after = {k: v for k, v in asdict(data.config).items() if k not in ignored}
-        if before != after or state["data_config"]["augment"] is not False:
-            raise ValueError("SSL waveform configuration mismatch")
+        policy_actual["normalizer_valid"] = True
+    except (KeyError, TypeError, ValueError) as exc:
+        policy_actual["normalizer_valid"] = False
+        errors["normalizer"] = str(exc)
+    try:
+        # Exact original SSL scope: all official training IDs BEFORE label exclusions.
+        actual["preprocessing_identity"] = preprocessing_identity(Path(data.config.data_dir), data.metadata.loc[train],
+                                                                  data.config, data.datasets["train"].reader)
+        policy_actual["current_identity_computed"] = True
+    except (OSError, ValueError) as exc:
+        policy_actual["current_identity_computed"] = False
+        errors["current_preprocessing_identity"] = str(exc)
+    return comparison_report(expected, actual, policy_expected, policy_actual,
+        source_export=export_evidence or {}, computation_errors=errors,
+        current_supervised_splits={k: list(map(int, v)) for k, v in data.splits.items()},
+        current_diagnostic_only=data.provenance["diagnostic_only"], class_names=data.class_names,
+        population_scope="SSL ID/signature comparison uses all official training folds before label exclusions; supervised subsets are recorded separately",
+        intentionally_different_controls={k: dict(expected_ssl=state["data_config"].get(k), actual_supervised=asdict(data.config).get(k)) for k in sorted(ignored)})
+
+
+def initialize_ssl_backbone(model, config, data, report_dir=None):
+    state, proof = load_completed_ssl_export(config.ssl_encoder_checkpoint, config.ssl_encoder_sha256)
+    report = compare_ssl_provenance(state, config, data, proof)
+    report_path = Path(report_dir) / "ssl_provenance_comparison.json" if report_dir is not None else None
+    if report_path:
+        write_json(report_path, report)
+    if report["blocking_mismatch_count"]:
+        print(comparison_message(report, report_path), flush=True)
+        raise ProvenanceMismatchError(report, report_path)
+    print(f"SSL provenance comparison: {report['status']}; report={report_path}", flush=True)
+    source = state["provenance"]
+    try:
         targets = model.state_dict()
         transferred = {k for k in targets if k.startswith(BACKBONE_PREFIXES)}
         fresh = {k for k in targets if k.startswith(("attn_pool.", "head."))}
@@ -125,6 +149,8 @@ def initialize_ssl_backbone(model, config, data):
     except (KeyError, TypeError) as exc:
         raise ValueError(f"SSL export lacks required transfer provenance: {exc}") from exc
     proof.update(mode="ssl_backbone_finetuning", task=config.task, class_names=data.class_names,
+                 provenance_comparison_status=report["status"],
+                 accepted_path_aliases=[d for d in report["mismatches"] if d["accepted"]],
                  verified_ssl_provenance=source, source_model_config=state["model_config"],
                  provenance_verified=True, transferred_parameter_names=sorted(transferred),
                  freshly_initialized_parameter_names=sorted(fresh),
@@ -132,6 +158,40 @@ def initialize_ssl_backbone(model, config, data):
                  fresh_initialization_seed=config.seed, all_parameters_trainable=True,
                  optimizer_scheduler_scaler="fresh", classification_labels="existing_official_supervised_mapping")
     return proof
+
+
+def run_provenance_audit(config):
+    """Metadata/preprocessing audit only: no classifier, optimizer or GPU training."""
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    from .data import load_ptbxl
+    from .utils import environment_info
+    out = Path(config.output_root) / f"{config.task}_{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}_{uuid4().hex[:8]}"
+    out.mkdir(parents=True, exist_ok=False)
+    report_path = out / "ssl_provenance_comparison.json"
+    write_json(out / "status.json", dict(status="running", mode="provenance_only", optimizer_steps=0))
+    try:
+        state, proof = load_completed_ssl_export(config.ssl_encoder_checkpoint, config.ssl_encoder_sha256)
+        limits = {k: config.batch_size * config.diagnostic_batches for k in ("train", "val")}
+        data = load_ptbxl(config.task, config=config.data, seed=config.seed, diagnostic_limits=limits)
+        write_json(out / "config.json", asdict(config))
+        write_json(out / "environment.json", environment_info())
+        write_json(out / "data_manifest.json", dict(task=config.task, provenance=data.provenance,
+            normalizer=data.normalizer.state_dict(), splits={k: list(map(int, ids)) for k, ids in data.splits.items()},
+            class_names=data.class_names))
+        report = compare_ssl_provenance(state, config, data, proof)
+        write_json(report_path, report)
+        if report["blocking_mismatch_count"]:
+            raise ProvenanceMismatchError(report, report_path)
+        summary = dict(status="complete", mode="provenance_only", optimizer_steps=0, benchmark_result=False,
+                       provenance_comparison_status=report["status"], output_dir=str(out.resolve()))
+        write_json(out / "summary.json", summary)
+        write_json(out / "status.json", summary)
+        return {"output_dir": str(out.resolve()), "summary": summary}
+    except Exception as exc:
+        write_json(out / "status.json", dict(status="failed", mode="provenance_only", optimizer_steps=0, error=str(exc),
+                                            provenance_report=str(report_path) if report_path.is_file() else None))
+        raise
 
 
 def audit_smoke_gradients(trainer, gradients):

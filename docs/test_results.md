@@ -1,3 +1,52 @@
+# SSL provenance diagnostics and verified directory aliases - 2026-10-29
+
+Reported failure: session 20261029T052515Z_51f75e15, superclass smoke, before
+training. No accessible copy of that session or original SSL metadata was
+provided here; prior remote access returned HTTP 403. Source inspection can
+identify the failed dictionary comparison, not the actual differing values.
+Earlier source export/config/split/patient checks passed; normalization had not
+yet been checked. No actual historical path or version difference is claimed.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-provenance-release --tb=short
+```
+
+**121 passed, 6 skipped, 5 warnings in 46.82s.** Skips require actual CUDA Mamba;
+warnings remain the existing scheduler transition notice. Windows filesystem
+directory-identity queries and disposable Git tests ran outside the sandbox.
+An initial sandboxed same-directory test was denied a Windows directory handle;
+the validator correctly rejected unverifiable identity, and the read-only test
+passed outside that restriction. No checks were removed to force a pass.
+
+New evidence:
+
+- Collect root, release, metadata/code hashes, raw signature, versions,
+  normalization and fit/split/patient-ID differences together. Assert exact
+  expected/actual values and complete lists in the saved comparison JSON.
+- Accept only a different spelling of the same existing filesystem directory,
+  with recorded samefile evidence and every other provenance field exact.
+- Reject absent mounts, different physical directories, and directory aliases
+  accompanied by package/code/source-signature differences. Missing fields and
+  bool-vs-integer assertions remain distinct; no rounding/sorting/version coercion.
+- Failed initialization preserves live config/environment/data manifest and
+  structured differences before updates, without writing model checkpoints.
+- Both task provenance-only audits construct no classifier or optimizer, report
+  zero fine-tuning steps, and collect both rejections when metadata mismatches.
+  Audit mode combined with full fine-tuning flags is blocked.
+- Existing SHA/completion/transfer/gradient guards, exact legacy continuation,
+  SSL/baseline training plumbing, patient splits, metrics and exports still pass.
+  Synthetic fixture source hashes remain unchanged by validation/transfer.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap, disabled full
+fine-tuning switches, audit default False and Git whitespace checks pass. The
+pretrained encoder, Mamba architecture, signal/cache implementations, labels
+and metrics are unchanged. No real GPU smoke or full training was launched.
+See ssl_provenance_diagnostics.md for the next bounded metadata-only run and
+what evidence is still needed to diagnose the user's actual failed session.
+
+---
+
 # SSL-pretrained classification fine-tuning - 2026-10-29
 
 The initial tree was clean on dev/unified-ecg-pipeline. The user's reported

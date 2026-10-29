@@ -11,6 +11,9 @@ It pins the user's completed epoch-20 encoder SHA256, validates source/live data
 provenance, transfers only the backbone and initializes fresh attention pooling
 and classifier heads. Both GPU smokes must pass before explicitly enabled full
 runs. See [required checkpoint files and switches](docs/ssl_finetuning.md).
+Provenance rejections now save complete expected/actual field comparisons before
+any updates. [The provenance-only audit](docs/ssl_provenance_diagnostics.md) collects
+both task reports without constructing a fine-tuning model or optimizer.
 
 - `04_btp_experiments.ipynb`: development reference, preserved.
 - `ecg-xl-btp.ipynb`: user's actual Kaggle attempt code, preserved. It has no

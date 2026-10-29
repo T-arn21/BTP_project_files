@@ -145,7 +145,8 @@ def test_smoke_uses_existing_trainer_metrics_and_saves_transfer_proof(source, mo
     assert digest_file(path) == cfg.ssl_encoder_sha256
 
 
-@pytest.mark.parametrize("mode", ["smoke_only", "full_after_smokes", "missing_smoke", "failed_smoke"])
+@pytest.mark.parametrize("mode", ["smoke_only", "full_after_smokes", "missing_smoke", "failed_smoke",
+                                   "provenance_only", "provenance_mismatch", "audit_conflict"])
 def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_path, mode):
     import nbformat
     import src.config as config_module
@@ -153,6 +154,11 @@ def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_pat
     import src.kaggle as kaggle
     import src.unattended as unattended
     path, cfg = source
+    if mode == "provenance_mismatch":
+        state = torch.load(path, weights_only=True)
+        state["provenance"]["preprocessing_identity"]["raw_file_stats_sha256"] = "changed"
+        torch.save(state, path)
+        cfg.ssl_encoder_sha256 = digest_file(path)
     root = Path(__file__).parents[1]
     (Path(cfg.data.data_dir) / "records100").mkdir()
     ns = {}
@@ -163,7 +169,9 @@ def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_pat
     settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=cfg.data.data_dir, SESSION_DIR=str(session),
         CACHE_DIR=cfg.data.cache_dir, RUN_SUPERCLASS=False, RUN_SUBCLASS=False, RUN_SMOKE=False,
         RUN_METADATA_AUDIT=False, RUN_SSL_FINETUNE_SMOKE=mode != "missing_smoke",
-        RUN_SSL_FINETUNE_SUPERCLASS=mode != "smoke_only", RUN_SSL_FINETUNE_SUBCLASS=mode != "smoke_only",
+        RUN_SSL_FINETUNE_SUPERCLASS=mode in {"full_after_smokes", "missing_smoke", "failed_smoke", "audit_conflict"},
+        RUN_SSL_FINETUNE_SUBCLASS=mode in {"full_after_smokes", "missing_smoke", "failed_smoke", "audit_conflict"},
+        SSL_FINETUNE_PROVENANCE_ONLY=mode in {"provenance_only", "provenance_mismatch", "audit_conflict"},
         SSL_FINETUNE_ENCODER_PATH=str(path), SSL_FINETUNE_ENCODER_SHA256=cfg.ssl_encoder_sha256,
         MODEL_SETTINGS=asdict(cfg.model), AUGMENT=cfg.data.augment, DATASET_VERSION=cfg.data.dataset_version)
     settings["SSL_FINETUNE_SETTINGS"].update(epochs=1, diagnostic_batches=1)
@@ -173,6 +181,12 @@ def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_pat
     original_load = experiments.load_ptbxl
     monkeypatch.setattr(experiments, "load_ptbxl", lambda *a, **k: original_load(*a, **k, reader=synthetic_reader))
     monkeypatch.setattr(experiments, "create_model", lambda name, width, config: ClassifierDouble(width))
+    if mode in {"provenance_only", "provenance_mismatch", "audit_conflict"}:
+        import src.data as data_module
+        original_data_load = data_module.load_ptbxl
+        monkeypatch.setattr(data_module, "load_ptbxl", lambda *a, **k: original_data_load(*a, **k, reader=synthetic_reader))
+        monkeypatch.setattr(experiments, "create_model", lambda *a, **k: pytest.fail("audit constructed a fine-tuning model"))
+        monkeypatch.setattr(torch.optim, "AdamW", lambda *a, **k: pytest.fail("audit constructed an optimizer"))
     original_run = experiments.run_experiment
     calls = []
     def run(*a, **k):
@@ -184,8 +198,16 @@ def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_pat
     monkeypatch.setattr(experiments, "run_experiment", run)
     code = unattended.run_worker(settings)
     final = json.loads((session / "final_summary.json").read_text())
-    if mode == "missing_smoke":
+    if mode in {"missing_smoke", "audit_conflict"}:
         assert code == 1 and calls == []
+    elif mode in {"provenance_only", "provenance_mismatch"}:
+        assert calls == [] and code == (0 if mode == "provenance_only" else 1)
+        reports = list(session.rglob("ssl_provenance_comparison.json"))
+        assert len(reports) == 2
+        assert not list(session.rglob("*.pth"))
+        for task in ("superclass", "subclass"):
+            item = final["experiments"][f"ssl_finetune_{task}_provenance_audit"]
+            assert item["status"] == ("complete" if code == 0 else "failed")
     elif mode == "failed_smoke":
         assert code == 1 and calls == [("superclass", True), ("subclass", True)]
         assert final["experiments"]["ssl_finetune_superclass"]["status"] == "blocked_by_smoke_failure"
