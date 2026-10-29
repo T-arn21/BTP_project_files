@@ -11,6 +11,7 @@ from src.cache import preprocessing_identity
 from src.data import load_ptbxl
 from src.finetuning import initialize_ssl_backbone
 from src.provenance import ProvenanceMismatchError
+from src.content_identity import resolve_reference_cache
 
 
 def changed_stats(source):
@@ -53,6 +54,50 @@ def test_complete_content_proof_preserves_mismatch_and_fresh_heads(source, tmp_p
     assert evidence["expected_content_sha256"] == evidence["actual_content_sha256"]
     assert evidence["reference_payload_sha256"] == state["provenance"]["signal_cache"]["payload_sha256"]
     assert torch.equal(model.head.weight, head)
+
+
+@pytest.mark.parametrize("layout", ["file", "entry", "parent"])
+def test_reference_layouts_authenticate_full_population(source, tmp_path, layout):
+    _, cfg, state, _ = changed_stats(source)
+    file = Path(cfg.ssl_reference_cache)
+    cfg.ssl_reference_cache = str({"file": file, "entry": file.parent, "parent": file.parent.parent}[layout])
+    data = load_ptbxl(config=cfg.data, reader=synthetic_reader)
+    proof = initialize_ssl_backbone(ClassifierDouble(5), cfg, data, report_dir=tmp_path)
+    evidence = proof["content_equivalence"]
+    assert evidence["verified"] and evidence["checked_records"] == 24
+    assert evidence["path_resolution"]["resolved_signals_path"] == str(file.resolve())
+    assert evidence["reference_payload_sha256"] == state["provenance"]["signal_cache"]["payload_sha256"]
+
+
+@pytest.mark.parametrize("layout", ["file", "entry", "parent"])
+@pytest.mark.parametrize("missing", ["signals.npy", "manifest.json"])
+def test_missing_reference_files_report_actionable_paths(source, layout, missing):
+    _, cfg = source
+    state = torch.load(source[0], weights_only=True)
+    file = Path(state["provenance"]["signal_cache"]["path"])
+    requested = {"file": file, "entry": file.parent, "parent": file.parent.parent}[layout]
+    file.with_name(missing).unlink()  # synthetic fixture only
+    with pytest.raises((ValueError, FileNotFoundError)) as caught:
+        resolve_reference_cache(requested, state["provenance"])
+    assert str(requested) in str(caught.value)
+    assert "signals.npy" in str(caught.value) and "manifest.json" in str(caught.value)
+
+
+def test_parent_rejects_ambiguous_or_unrelated_entries(source, tmp_path):
+    import shutil
+    state = torch.load(source[0], weights_only=True)
+    file = Path(state["provenance"]["signal_cache"]["path"])
+    duplicate = file.parent.parent / "signals_duplicate"
+    shutil.copytree(file.parent, duplicate)
+    with pytest.raises(ValueError, match="found 2"):
+        resolve_reference_cache(file.parent.parent, state["provenance"])
+    manifest = json.loads((duplicate / "manifest.json").read_text())
+    manifest["payload_sha256"] = "wrong"
+    (duplicate / "manifest.json").write_text(json.dumps(manifest))
+    resolved, _ = resolve_reference_cache(file.parent.parent, state["provenance"])
+    assert resolved == file
+    with pytest.raises(ValueError, match="found 0"):
+        resolve_reference_cache(tmp_path / "pretraining", state["provenance"])
 
 
 @pytest.mark.parametrize("damage", ["last_ecg", "nonfinite", "reference_bytes", "manifest_ids", "manifest_identity", "missing", "other_gate", "disabled"])

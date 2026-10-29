@@ -15,6 +15,47 @@ from .signal import SignalNormalizer
 from .utils import log_progress
 
 
+def resolve_reference_cache(reference_path, source):
+    """Accept signals.npy, its entry directory, or a parent containing entries.
+
+    Parent discovery uses authenticated metadata, never first-file/name matching.
+    Payload SHA256 authentication is still mandatory after resolution.
+    """
+    requested = Path(reference_path)
+    if requested.is_dir() and not (requested / "signals.npy").is_file() and not (requested / "manifest.json").is_file():
+        matches = []
+        inspected = []
+        for entry in sorted(requested.glob("signals_*")):
+            if not entry.is_dir():
+                continue
+            manifest_path = entry / "manifest.json"
+            inspected.append(str(manifest_path))
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if (manifest.get("ids") == sorted(source["eligible_train_ids"]) and
+                        manifest.get("identity") == source["preprocessing_identity"] and
+                        manifest.get("payload_sha256") == source["signal_cache"]["payload_sha256"]):
+                    matches.append(entry / "signals.npy")
+            except (OSError, ValueError, TypeError):
+                continue
+        if len(matches) != 1:
+            raise ValueError(f"Reference cache parent {requested}: expected exactly one checkpoint-matching entry, found {len(matches)}; "
+                             f"inspected manifests={inspected}. Set the specific signals.npy path or its entry directory; "
+                             "both signals.npy and adjacent manifest.json are required.")
+        path, layout = matches[0], "cache_parent_directory"
+    else:
+        path = requested / "signals.npy" if requested.is_dir() else requested
+        layout = "cache_entry_directory" if requested.is_dir() else "signals_file"
+    if path.name != "signals.npy":
+        raise ValueError(f"Invalid reference cache path {requested}: use signals.npy, its cache-entry directory, or its existing parent cache directory")
+    missing = [str(p) for p in (path, path.with_name("manifest.json")) if not p.is_file()]
+    if missing:
+        raise FileNotFoundError(f"Reference cache incomplete for {requested}; missing files={missing}. "
+                                "Required: signals.npy and manifest.json in the same cache-entry directory.")
+    return path, dict(requested_path=str(requested), resolved_signals_path=str(path.resolve()),
+                      resolved_manifest_path=str(path.with_name("manifest.json").resolve()), layout=layout)
+
+
 def verify_training_content(state, data, identity, reference_path):
     """Never trust an external manifest/checksum unless bound to the pinned encoder."""
     proof = dict(schema=1, verified=False, method="full_training_processed_float32_bytes_v1",
@@ -25,7 +66,8 @@ def verify_training_content(state, data, identity, reference_path):
         ids = sorted(map(int, source["eligible_train_ids"]))
         if not ids or len(set(ids)) != len(ids) or sorted(source["used_train_ids"]) != ids:
             raise ValueError("Reference must cover the complete unique SSL training population")
-        path = Path(reference_path)
+        path, resolution = resolve_reference_cache(reference_path, source)
+        proof["path_resolution"] = resolution
         manifest = json.loads(path.with_name("manifest.json").read_text(encoding="utf-8"))
         pin = source["signal_cache"]["payload_sha256"]
         if (path.name != "signals.npy" or manifest["ids"] != ids or

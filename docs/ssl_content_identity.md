@@ -12,7 +12,7 @@ per-file cause remains unverified.
 ## Strict, opt-in compatibility gate
 
 `ExperimentConfig.ssl_reference_cache` (notebook `SSL_FINETUNE_REFERENCE_CACHE`)
-defaults to None/empty. Existing behavior remains strict when it is unset.
+defaults to None in the Python API. The notebook currently selects the supplied full reference for an audit-only run. Existing behavior remains strict when it is unset.
 A content audit is eligible only when the **sole** provenance difference is
 `preprocessing_identity.raw_file_stats_sha256`. Dataset root/version, metadata
 hashes, preprocessing source, reader and package versions, model settings,
@@ -21,7 +21,18 @@ patient separation must all match first. Directory relocation is not combined
 with this exception.
 
 The reference must be the original full `signals.npy` plus adjacent
-`manifest.json`. The manifest's complete training IDs and identity must exactly
+`manifest.json`. Accepted path forms are the `signals.npy` file, its specific
+`signals_<key>` entry directory, or the parent `cache/ssl` directory. The parent
+form searches immediate `signals_*` entries and requires exactly one manifest
+whose IDs, original identity and payload pin match authenticated encoder metadata.
+It rejects zero/multiple matches; it never selects the first arbitrary cache.
+Each form still checks both files exist and authenticates the payload itself.
+The report records the requested path, layout and resolved file/manifest paths.
+
+The previous implementation accepted only the file path. Calling `with_name`
+on an entry-directory path looked for `manifest.json` in the parent directory;
+this source-level reproduction explains the reported missing `cache/ssl/manifest.json` in session
+`20261029T124001Z_81cda7c8`. Directory inputs are now resolved before file access. The manifest's complete training IDs and identity must exactly
 match the authenticated encoder provenance. The actual NPY file SHA256 must
 match the payload pin **inside the independently SHA256-pinned encoder**; an
 untrusted manifest checksum alone cannot authorize acceptance. Smoke/subset
@@ -71,11 +82,10 @@ tree including `cache/ssl`, use:
 SSL_FINETUNE_REFERENCE_CACHE = "/kaggle/input/datasets/arnavtiku/checkpoint/btp_outputs/cache/ssl/signals_fa14baaf8ce23a18d5778e2d/signals.npy"
 ```
 
-That remote cache inventory has not been verified here. The previously supplied
-encoder path establishes only the session export location, not whether the cache
-was uploaded. If absent, attach a dataset containing these **two original cache
-files**, copied unchanged from the successful download, and set their actual
-input path. No additional historical raw ECG dataset is required when this full
+The user confirmed both reference files exist at this Kaggle location after the
+failed session. This environment has not independently mounted the Kaggle input.
+If using a different input layout, attach these **two original cache files**
+unchanged and set their actual path. No additional historical raw ECG dataset is required when this full
 checkpoint-authenticated processed cache is available alongside current PTB-XL.
 Encoder/config/summary plus the 1,004-record overlap are insufficient by themselves.
 
@@ -90,12 +100,26 @@ RUN_SSL_FINETUNE_SUPERCLASS = RUN_SSL_FINETUNE_SUBCLASS = False
 # Set SSL_FINETUNE_REFERENCE_CACHE as above; retain the pinned encoder settings.
 ```
 
+Set **Kaggle Accelerator = None**, Internet on, and Run All. Exclusive
+provenance-only execution now uses CPU for checkpoint loading and data checks;
+it does not probe, import, install or build Mamba/causal-conv1d CUDA extensions.
+Torch is still required for safe `weights_only=True`, `map_location="cpu"`
+checkpoint deserialization. Only missing base scientific packages are installed;
+Torch is not replaced. Exact numpy/scipy/WFDB/source-version checks remain active:
+if the CPU image differs, the report rejects it rather than relaxing compatibility.
+`RUN_SSL_FINETUNE_SMOKE=True` is solely the existing audit selector while
+`SSL_FINETUNE_PROVENANCE_ONLY=True`; no GPU smoke is run. Combining this CPU mode
+with any baseline, reconstruction or full fine-tuning action is rejected before
+setup. The worker derives device requirements from the actual flags.
+
 Run All performs full training-content verification with **zero model/optimizer
 steps**. It may preprocess all 17,441 training ECGs (about 0.84 GB additional
 cache, plus diagnostic/norm caches); this is a complete content audit, not a
 four-record smoke. Results are under
 `/kaggle/working/btp_outputs/sessions/<NEW>/ssl_finetuning/provenance_audit/<task>_<id>/`.
-After both audits pass, a later GPU smoke can use
+Expected success is `passed_verified_training_content` with `checked_records=17441`
+for each task. A 1,004-record overlap or partial count cannot authorize transfer.
+After both audits pass, select a GPU for a later GPU smoke and use
 `SSL_FINETUNE_PROVENANCE_ONLY=False` with both full flags still False, AMP off.
 No full training was launched or content equivalence of the remaining 16,437
 real records claimed during local implementation.

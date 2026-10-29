@@ -8,6 +8,18 @@ import traceback
 from .kaggle_setup import stage_log, setup_dependencies, run_logged
 
 
+def cpu_provenance_only(settings):
+    """Derive device requirements from actual actions, never a stale NEED_GPU flag."""
+    if not settings.get("SSL_FINETUNE_PROVENANCE_ONLY", False):
+        return False
+    forbidden = ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT",
+                 "RUN_SSL_SMOKE", "RUN_SSL_PRETRAIN", "RUN_SSL_FINETUNE_SUPERCLASS", "RUN_SSL_FINETUNE_SUBCLASS")
+    enabled = [key for key in forbidden if settings.get(key, False)]
+    if enabled or not settings.get("RUN_SSL_FINETUNE_SMOKE", False):
+        raise ValueError(f"CPU provenance-only execution requires RUN_SSL_FINETUNE_SMOKE=True as the audit selector and all other run flags False; enabled={enabled}")
+    return True
+
+
 def save_summary(path, summary):
     temporary = Path(path).with_suffix(".partial.json")
     temporary.write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
@@ -27,14 +39,17 @@ def controller(settings, config_path):
     summary_path = session / "final_summary.json"
     save_summary(summary_path, summary)
     try:
-        summary["stage"] = "dependency setup and CUDA verification"
+        cpu_only = cpu_provenance_only(settings)
+        summary["stage"] = "CPU provenance dependency setup" if cpu_only else "dependency setup and CUDA verification"
         save_summary(summary_path, summary)
-        with stage_log(session, "dependency setup and CUDA verification"):
+        with stage_log(session, summary["stage"]):
             setup = setup_dependencies(settings["CHECKOUT_DIR"], session,
                        wheel_dir=settings["WHEEL_DIR"], allow_source_build=settings["ALLOW_SOURCE_BUILD"],
-                       install_base=settings["INSTALL_BASE"], max_jobs=settings["MAX_JOBS"])
+                       install_base=settings["INSTALL_BASE"], max_jobs=settings["MAX_JOBS"], require_gpu=not cpu_only)
             save_summary(session / "setup_report.json", setup)
-            summary["checks"]["dependencies_cuda"] = "passed"
+            summary["checks"]["dependencies_cpu" if cpu_only else "dependencies_cuda"] = "passed"
+            if cpu_only:
+                summary["checks"]["cuda_mamba"] = "not_required_provenance_only"
             summary["stage"] = "fresh training worker"
             save_summary(summary_path, summary)
         env = {k: v for k, v in os.environ.items() if k not in {"GITHUB_TOKEN", "BTP_GITHUB_TOKEN"}}
@@ -68,6 +83,7 @@ def run_worker(settings):
         summary["checks"][name] = "passed"
         save_summary(summary_path, summary)
     try:
+        cpu_only = cpu_provenance_only(settings)
         with stage_log(session, stage):
             import src
             checkout = Path(settings["CHECKOUT_DIR"]).resolve()
@@ -87,7 +103,8 @@ def run_worker(settings):
                 if name.startswith("src.") and getattr(module, "__file__", None):
                     if not Path(module.__file__).resolve().is_relative_to(checkout / "src"):
                         raise RuntimeError("A worker module resolved outside the synchronized checkout")
-            require_cuda()
+            if not cpu_only:
+                require_cuda()
             write_json(session / "environment.json", environment_info())
             passed("synchronized_imports")
         stage = "dataset discovery and patient metadata audit"
@@ -111,7 +128,7 @@ def run_worker(settings):
                 normalization_seed=settings["NORMALIZATION_SEED"], cache_dir=settings["CACHE_DIR"],
                 cache_signals=settings["CACHE_SIGNALS"], apply_filter=settings["APPLY_FILTER"], augment=settings["AUGMENT"])
             config = ExperimentConfig(epochs=settings["FULL_EPOCHS"], batch_size=settings["FULL_BATCH_SIZE"],
-                device="cuda", seed=settings["SEED"], mixed_precision=settings["MIXED_PRECISION"],
+                device="cpu" if cpu_only else "cuda", seed=settings["SEED"], mixed_precision=settings["MIXED_PRECISION"],
                 numerical_stability_mode=settings.get("NUMERICAL_STABILITY_MODE", "strict"),
                 model=ModelConfig(**settings["MODEL_SETTINGS"]), data=data_config,
                 diagnostic=settings["DIAGNOSTIC_MODE"], diagnostic_batches=settings["DIAGNOSTIC_BATCHES"],
@@ -244,7 +261,8 @@ def run_worker(settings):
                     raise
                 finally:
                     gc.collect()
-                    torch.cuda.empty_cache()
+                    if not cpu_only:
+                        torch.cuda.empty_cache()
         enabled = [task for task, flag in (("superclass", "RUN_SUPERCLASS"), ("subclass", "RUN_SUBCLASS")) if settings[flag]]
         initial_checkpoints = dict(settings.get("INITIAL_CHECKPOINTS", {}))
         if enabled and settings.get("CONTINUATION_SESSION_ID"):

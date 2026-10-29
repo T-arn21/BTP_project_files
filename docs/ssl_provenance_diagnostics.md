@@ -7,7 +7,7 @@ They have since been supplied and inspected read-only: see the
 metadata/code hashes, environment and normalization match exactly. The rejected
 field is deduced to be the raw file-stat signature; the actual historical
 training-only digest was not persisted. This is not a mount-alias mismatch.
-Timestamp-only drift remains unproven and strict rejection is retained.
+Timestamp-only drift remains unproven; a sole stat difference is rejected unless the full checkpoint-authenticated content audit succeeds.
 
 ## What source inspection establishes
 
@@ -128,7 +128,9 @@ Keep the actual dataset/root/version/normalization/model settings from the
 failed run to diagnose them faithfully. Do not edit settings solely to conceal
 a mismatch. Leave the supplied epoch-20 encoder path and SHA256 pinned.
 
-The ordinary launcher still synchronizes GitHub and probes dependencies/CUDA.
+Select Kaggle Accelerator None. The launcher synchronizes GitHub and checks base
+scientific dependencies plus CPU checkpoint loading; CUDA/Mamba extension probes
+and installation are skipped in exclusive provenance-only mode.
 The fine-tuning audit itself creates **no classifier or optimizer**, performs
 zero fine-tuning steps and does not evaluate/predict test waveforms. It may fit
 the configured training-only normalization and build/reuse bounded diagnostic
@@ -156,3 +158,7 @@ folder, including when initialization rejects before the first batch.
 
 See [full training content equivalence](ssl_content_identity.md) for the opt-in,
 checkpoint-authenticated full-population proof required for a sole stat-signature mismatch.
+
+Current notebook defaults run only the CPU provenance audit (Kaggle Accelerator None).
+The reference accepts a signals.npy file, its entry directory, or the parent cache/ssl directory;
+see the content-equivalence guide for exact pinned paths and strict resolution rules.

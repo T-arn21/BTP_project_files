@@ -181,7 +181,8 @@ def test_ssl_unattended_controls_without_supervised_labels(monkeypatch, syntheti
     settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=str(synthetic_root), SESSION_DIR=str(session),
                     CACHE_DIR=str(tmp_path / "worker_cache"), RUN_SUPERCLASS=False, RUN_SUBCLASS=False,
                     RUN_SMOKE=False, RUN_METADATA_AUDIT=False, RUN_SSL_SMOKE=mode != "no_smoke",
-                    RUN_SSL_PRETRAIN=mode != "smoke_only")
+                    RUN_SSL_PRETRAIN=mode != "smoke_only", RUN_SSL_FINETUNE_SMOKE=False,
+                    SSL_FINETUNE_PROVENANCE_ONLY=False)
     settings["SSL_SETTINGS"].update(epochs=1, batch_size=8, smoke_fit_records=3)
     monkeypatch.setattr(kaggle, "require_cuda", lambda: None)
     monkeypatch.setattr(kaggle, "audit_metadata", lambda *a, **kw: pytest.fail("SSL-only path parsed diagnostic labels"))

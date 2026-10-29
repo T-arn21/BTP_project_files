@@ -130,7 +130,7 @@ print(json.dumps({'probe': 'cuda_forward_backward_passed', 'torch': torch.__vers
 
 
 def setup_dependencies(repo_dir, output_root, *, wheel_dir="", allow_source_build=False,
-                       install_base=True, max_jobs=2):
+                       install_base=True, max_jobs=2, require_gpu=True):
     """Prefer working install, then supplied wheels, then explicit source build.
 
     A fresh subprocess probes compiled extensions to avoid stale failed imports.
@@ -140,14 +140,26 @@ def setup_dependencies(repo_dir, output_root, *, wheel_dir="", allow_source_buil
     logs = out / "setup_logs"
     logs.mkdir(parents=True, exist_ok=True)
     pip = [sys.executable, "-m", "pip"]
-    missing = [name for name in ("numpy", "pandas", "scipy", "sklearn", "wfdb", "matplotlib", "einops", "transformers")
+    base = ("numpy", "pandas", "scipy", "sklearn", "wfdb", "matplotlib")
+    missing = [name for name in (base + ("einops", "transformers") if require_gpu else base)
                if importlib.util.find_spec(name) is None]
+    if not require_gpu and importlib.util.find_spec("torch") is None:
+        raise RuntimeError("CPU provenance audit requires preinstalled Torch for weights_only checkpoint loading; no CUDA extensions are required")
     if missing:
         if not install_base:
             raise RuntimeError(f"Missing base dependencies {missing}; enable INSTALL_BASE")
-        run_logged(pip + ["install", "-r", str(Path(repo_dir) / "requirements-kaggle.txt")], logs / "base.log")
+        if require_gpu:
+            args = ["-r", str(Path(repo_dir) / "requirements-kaggle.txt")]
+        else:
+            specs = {"numpy": "numpy>=1.26,<3", "pandas": "pandas>=2.2,<3", "scipy": "scipy>=1.13,<2",
+                     "sklearn": "scikit-learn>=1.5,<2", "wfdb": "wfdb==4.3.1", "matplotlib": "matplotlib>=3.8,<4"}
+            args = [specs[name] for name in missing]
+        run_logged(pip + ["install", *args], logs / "base.log")
     else:
         print("Base dependencies already present; skipping installation", flush=True)
+    if not require_gpu:
+        print("CPU provenance-only mode: CUDA/Mamba probes, wheel installation and source builds skipped", flush=True)
+        return {"installation": "cpu_provenance_only", "cuda": "not_required", "mamba_extensions": "not_required"}
     works, details = probe_mamba()
     (logs / "cuda_probe_before.txt").write_text(details, encoding="utf-8")
     if works:

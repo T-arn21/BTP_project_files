@@ -1,3 +1,42 @@
+# Reference-cache layouts and CPU provenance-only execution - 2026-10-29
+
+Source-level reproduction confirms the reported session 20261029T124001Z_81cda7c8
+path error: applying Path.with_name("manifest.json") to a cache-entry directory
+looked in its parent instead of inside the entry. The resolver now supports the
+signals.npy file, its entry directory and its parent cache directory. Parent
+selection requires exactly one checkpoint-matching manifest; every selected
+payload still requires the encoder-embedded SHA256 and complete training IDs.
+Missing files/ambiguous entries are reported with actionable requested paths.
+
+The notebook now defaults to the requested exclusive provenance-only mode:
+Kaggle Accelerator None, both task audits, no GPU smoke, classifier, optimizer
+or full training. CPU setup skips all Mamba/CUDA probes and wheel/source builds;
+only missing scientific packages are installed, retaining strict preprocessing
+version checks. Full/GPU actions conflicting with audit-only mode are rejected.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-cache-path-release --tb=short
+```
+
+**155 passed, 6 skipped, 5 warnings in 56.68s.** Skips require real CUDA Mamba;
+warnings are existing scheduler notices. New regression coverage includes all
+three path forms, each missing file in each layout, ambiguous/unrelated cache
+entries, CPU-only dependency setup and actual controller/worker routing through
+both synthetic full-content audits with CUDA/model/trainer calls forbidden.
+Existing content mismatch/nonfinite/other-provenance rejection tests still pass.
+Notebook schema, all code-cell syntax, audit-only defaults and pinned settings
+also pass. Earlier focused testing exposed three older tests relying on notebook
+run defaults; their intended actions are now explicit and the release suite passes.
+
+A separate read-only check on the original downloaded SSL artifacts verified:
+all three path forms resolve the full reference (not the smoke cache), the original
+encoder SHA matches the pinned value, the reference payload matches its embedded
+SHA, and the full population is 17,441 ECGs. No originals were modified.
+Current Kaggle raw waveforms are not mounted locally: complete current/source
+content equivalence must still be executed on Kaggle before any transfer.
+No Kaggle execution or GPU training was launched.
+
 # Full SSL training-content proof - 2026-10-29
 
 Confirmed the historical stat signature hashes relative names/presence, byte

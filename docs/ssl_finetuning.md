@@ -99,7 +99,7 @@ every other field is exact. Missing mounts/different copies are still rejected.
 See [provenance diagnosis and zero-step audit mode](ssl_provenance_diagnostics.md)
 for the reported failed session and the safe next-run switches.
 
-## Next run: both GPU smokes only
+## Later run after the CPU audit passes: both GPU smokes only
 
 Import the latest `05_btp_kaggle_final.ipynb`, enable GPU and Internet, attach
 the checkpoint and matching PTB-XL inputs, and enable the existing GITHUB_TOKEN
@@ -111,6 +111,7 @@ SETTINGS line, then use **Run All / Save & Run All**:
 RUN_SUPERCLASS = RUN_SUBCLASS = RUN_SMOKE = RUN_METADATA_AUDIT = False
 RUN_SSL_SMOKE = RUN_SSL_PRETRAIN = False
 
+SSL_FINETUNE_PROVENANCE_ONLY = False  # explicitly leave the current CPU audit mode
 RUN_SSL_FINETUNE_SMOKE = True
 RUN_SSL_FINETUNE_SUPERCLASS = False
 RUN_SSL_FINETUNE_SUBCLASS = False
@@ -149,6 +150,7 @@ Only after reviewing both real GPU smokes, use a separate explicitly configured
 Run All (same source pin, AMP off and the other workflow flags still off):
 
 ```python
+SSL_FINETUNE_PROVENANCE_ONLY = False  # explicitly leave the current CPU audit mode
 RUN_SSL_FINETUNE_SMOKE = True
 RUN_SSL_FINETUNE_SUPERCLASS = True  # full superclass experiment
 RUN_SSL_FINETUNE_SUBCLASS = True    # full subclass experiment; independently selectable
