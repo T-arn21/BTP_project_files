@@ -6,6 +6,8 @@ Use **`05_btp_kaggle_final.ipynb`** as the primary Kaggle execution notebook.
 Its current defaults run both **SSL-cache-backed GPU smokes only**, using the original
 authenticated training cache and normalizer. Full fine-tuning and baseline runs stay disabled.
 See [exact inputs and smoke settings](docs/ssl_cache_backed_finetuning.md).
+Completed runs can opt into [epoch-5 to epoch-10 full-state resume](docs/ssl_completed_resume.md)
+in new folders, with all other settings/provenance fixed and an explicit terminal-LR policy.
 The separate independent-audit mode retains strict byte-equivalence checks; see
 [normalizer evidence](docs/ssl_normalizer_migration.md) for the confirmed CPU differences.
 No extra encoder architectures are added. SSL pretraining is opt-in and full

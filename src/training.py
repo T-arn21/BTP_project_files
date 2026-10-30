@@ -13,6 +13,7 @@ from .evaluation import evaluate
 from .utils import log_progress
 from .utils import write_json
 from .config import checkpoint_config_matches
+from .cache import digest_file
 from .numerics import fp32_bce, tensor_finite, named_finite, optimizer_tensors, failure_report
 
 
@@ -74,6 +75,7 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=config.min_lr)
         self.scaler = torch.amp.GradScaler("cuda", enabled=config.mixed_precision and self.device.type == "cuda")
         self.history, self.best_score, self.counter = [], -math.inf, 0
+        self.scheduler_continuation = None
         self.current_epoch, self.batch_index, self.stage = 0, 0, "initialization"
         self._batch = dict(record_ids=[], inputs=None, targets=None, loss_targets=None, logits=None, loss=None)
         weights = self.criterion.pos_weight
@@ -181,15 +183,28 @@ class Trainer:
         self.last_data_wait_seconds = data_wait
         return total / count, metrics["macro_auroc"]
 
-    def fit(self, train_loader, val_loader, resume_from=None):
+    def fit(self, train_loader, val_loader, resume_from=None, completed_extension=None):
         start_epoch = 1
         if resume_from:
             state = load_checkpoint(resume_from, self.model, self.class_names, self.device)
-            if not checkpoint_config_matches(state["config"], self.config) or state["metadata"] != self.metadata:
+            matches = checkpoint_config_matches(state["config"], self.config)
+            if completed_extension:
+                from .resume_extension import extension_config_matches
+                matches = extension_config_matches(state["config"], self.config)
+                if (completed_extension["source_files"]["last.pth"] != digest_file(resume_from)
+                        or completed_extension["source_epoch"] != state["epoch"]):
+                    raise ValueError("Completed extension checkpoint differs from validated snapshot")
+            if not matches or state["metadata"] != self.metadata:
                 raise ValueError("Resume requires identical config, preprocessing and split provenance")
             self.optimizer.load_state_dict(state["optimizer_state_dict"])
             self.scheduler.load_state_dict(state["scheduler_state_dict"])
             self.scaler.load_state_dict(state["scaler_state_dict"])
+            self.scheduler_continuation = (completed_extension["scheduler_continuation"] if completed_extension
+                                           else state.get("scheduler_continuation"))
+            if self.scheduler_continuation:
+                if (self.scheduler_continuation["policy"] != "hold_completed_lr" or
+                        self.scheduler_continuation["held_lrs"] != [g["lr"] for g in self.optimizer.param_groups]):
+                    raise ValueError("Invalid scheduler continuation policy/LR")
             self._check_state("checkpoint_restore")
             self.best_score, self.counter, self.history = state["best_score"], state["counter"], state["history"]
             start_epoch = state["epoch"] + 1
@@ -214,7 +229,8 @@ class Trainer:
             train_loss, train_auc = self._epoch(train_loader, True)
             train_data_wait = self.last_data_wait_seconds
             val_loss, val_auc = self._epoch(val_loader, False)
-            self.scheduler.step()
+            if self.scheduler_continuation is None:
+                self.scheduler.step()
             if self.device.type == "cuda":
                 torch.cuda.synchronize(self.device)
             record = dict(epoch=epoch, train_loss=train_loss, val_loss=val_loss,
@@ -237,6 +253,8 @@ class Trainer:
                          rng_python=random.getstate(), rng_numpy=(np_rng[0], np_rng[1].tolist(), *np_rng[2:]),
                          loader_rng=train_loader.generator.get_state() if train_loader.generator is not None else None,
                          augmentation_rng=aug.rng.bit_generator.state if aug is not None else None)
+            if self.scheduler_continuation:
+                state["scheduler_continuation"] = self.scheduler_continuation
             save_start = perf_counter()
             log_progress(f"Saving checkpoint epoch {epoch} to {self.directory}")
             if improved:

@@ -13,7 +13,7 @@ def cpu_provenance_only(settings):
     if not settings.get("SSL_FINETUNE_PROVENANCE_ONLY", False):
         return False
     forbidden = ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT",
-                 "RUN_SSL_SMOKE", "RUN_SSL_PRETRAIN", "RUN_SSL_FINETUNE_SUPERCLASS", "RUN_SSL_FINETUNE_SUBCLASS")
+                 "RUN_SSL_SMOKE", "RUN_SSL_PRETRAIN", "RUN_SSL_FINETUNE_SUPERCLASS", "RUN_SSL_FINETUNE_SUBCLASS", "RUN_SSL_FINETUNE_RESUME")
     enabled = [key for key in forbidden if settings.get(key, False)]
     if enabled or not settings.get("RUN_SSL_FINETUNE_SMOKE", False):
         raise ValueError(f"CPU provenance-only execution requires RUN_SSL_FINETUNE_SMOKE=True as the audit selector and all other run flags False; enabled={enabled}")
@@ -39,6 +39,9 @@ def controller(settings, config_path):
     summary_path = session / "final_summary.json"
     save_summary(summary_path, summary)
     try:
+        if settings.get("RUN_SSL_FINETUNE_RESUME", False):
+            from .resume_extension import validate_resume_settings
+            validate_resume_settings(settings)
         cpu_only = cpu_provenance_only(settings)
         summary["stage"] = "CPU provenance dependency setup" if cpu_only else "dependency setup and CUDA verification"
         save_summary(summary_path, summary)
@@ -83,6 +86,9 @@ def run_worker(settings):
         summary["checks"][name] = "passed"
         save_summary(summary_path, summary)
     try:
+        if settings.get("RUN_SSL_FINETUNE_RESUME", False):
+            from .resume_extension import validate_resume_settings
+            validate_resume_settings(settings)
         cpu_only = cpu_provenance_only(settings)
         with stage_log(session, stage):
             import src
@@ -191,6 +197,25 @@ def run_worker(settings):
                 finally:
                     gc.collect()
                     torch.cuda.empty_cache()
+        if settings.get("RUN_SSL_FINETUNE_RESUME", False):
+            from .resume_extension import resolve_completed_runs, config_from_completed_run
+            directories = resolve_completed_runs(settings)
+            for task, directory in directories.items():
+                stage = f"ssl_finetune_{task}_completed_resume"
+                summary["stage"] = stage
+                save_summary(summary_path, summary)
+                resumed_config = config_from_completed_run(directory, settings["SSL_FINETUNE_RESUME_TO_EPOCHS"],
+                    session / "ssl_finetuning" / "resumed")
+                if resumed_config.task != task:
+                    raise ValueError("Completed resume source task mismatch")
+                with stage_log(session, stage):
+                    result = run_experiment(config=resumed_config, resume_completed_from=directory,
+                        scheduler_policy=settings["SSL_FINETUNE_RESUME_SCHEDULER_POLICY"])
+                summary["completed"][stage] = {"output_dir": result["output_dir"], "summary": result["summary"]}
+                summary["experiments"][stage] = dict(status="complete", output_dir=result["output_dir"])
+                passed(stage)
+                gc.collect()
+                torch.cuda.empty_cache()
         if ft_requested:
             stage = "SSL fine-tuning source validation"
             summary["stage"] = stage

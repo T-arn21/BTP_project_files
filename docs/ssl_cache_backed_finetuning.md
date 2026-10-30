@@ -128,3 +128,6 @@ To return to independent CPU auditing, explicitly set
 `SSL_FINETUNE_DATA_MODE="independent"`, `SSL_FINETUNE_PROVENANCE_ONLY=True`,
 leave the smoke selector True and all full/baseline/SSL flags False, and select
 Accelerator None. The old byte-equivalence requirements remain in force there.
+
+Completed full runs can separately [extend their epoch limit with strict full-state resume](ssl_completed_resume.md).
+The default notebook resume flag is False; it is mutually exclusive with these smoke flags.

@@ -39,19 +39,24 @@ def diagnostic_limits(config):
 
 def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                    data_dir=None, config=None, *, run_dir=None, resume_from=None,
-                   prepared_data=None):
+                   prepared_data=None, resume_completed_from=None, scheduler_policy=None):
     overrides = {k: v for k, v in dict(model_name=model_name, task=task, epochs=epochs,
                                      batch_size=batch_size).items() if v is not None}
     cfg = replace(config or ExperimentConfig(), **overrides)
     if data_dir:
         cfg.data = replace(cfg.data, data_dir=str(data_dir))
+    if resume_completed_from and (resume_from or run_dir):
+        raise ValueError("Completed epoch extension requires a new automatic experiment folder, without run_dir/resume_from")
     if resume_from and run_dir is None:
         raise ValueError("Pass the original run_dir when resuming")
     purpose = "diagnostic" if cfg.diagnostic else "benchmark"
     if run_dir is None:
         run_dir = Path(cfg.output_root) / purpose / f"{cfg.model_name}_{cfg.task}_{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}_{uuid4().hex[:8]}"
     out = Path(run_dir)
+    if resume_completed_from and out.resolve().is_relative_to(Path(resume_completed_from).resolve()):
+        raise ValueError("New resume outputs must not be inside the original experiment folder")
     out.mkdir(parents=True, exist_ok=bool(resume_from))
+    completed_extension = None
     stage = "data preparation"
     with (out / "run.log").open("a", encoding="utf-8", buffering=1) as log:
         with redirect_stdout(Tee(sys.stdout, log)), redirect_stderr(Tee(sys.stderr, log)):
@@ -85,6 +90,12 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     write_json(out / "environment.json", environment_info())
                     write_json(out / "data_manifest.json", {**metadata, "class_names": data.class_names,
                                                            "excluded_unlabeled_ids": data.dropped_ids})
+                if resume_completed_from:
+                    from .resume_extension import validate_completed_extension, snapshot_completed_source
+                    stage = "completed epoch-extension config/provenance validation"
+                    completed_extension = validate_completed_extension(resume_completed_from, cfg, metadata,
+                                                                       data.class_names, scheduler_policy)
+                    resume_from = snapshot_completed_source(completed_extension, out)
                 stage = "model and DataLoader initialization"
                 log_progress(stage)
                 model = create_model(cfg.model_name, len(data.class_names), cfg.model)
@@ -118,7 +129,7 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                                restored_states=["model"], reset_states=["optimizer", "scheduler", "scaler", "rng", "early_stopping"],
                                original_training_config=initial.get("config"), new_training_config=asdict(cfg)))
                     del initial
-                if resume_from:
+                if resume_from and completed_extension is None:
                     previous = torch.load(resume_from, map_location="cpu", weights_only=True)
                     if not checkpoint_config_matches(previous.get("config", {}), cfg) or previous.get("metadata") != metadata or previous.get("class_names") != data.class_names:
                         raise ValueError("Exact resume requires identical training settings, classes and preprocessing. Use initial_checkpoint for an explicit NEW weights-only run when changing AMP/LR")
@@ -134,7 +145,11 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 stage = "training"
                 write_json(out / "status.json", dict(status="running", stage=stage, purpose=purpose, benchmark_result=False))
                 start = perf_counter()
-                history = trainer.fit(loaders["train"], loaders["val"], resume_from)
+                if completed_extension:
+                    history = trainer.fit(loaders["train"], loaders["val"], resume_from,
+                                          completed_extension=completed_extension)
+                else:
+                    history = trainer.fit(loaders["train"], loaders["val"], resume_from)
                 training_seconds = perf_counter() - start
                 stage = "validation and evaluation exports"
                 state = load_checkpoint(out / "best.pth", model, data.class_names, "cpu")
@@ -159,7 +174,7 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 plot_results(history, table, out / "figures")
                 summary = dict(model_name=cfg.model_name, task=cfg.task, best_epoch=best_epoch,
                                experiment_kind="ssl_cache_backed_finetuning" if cfg.ssl_data_mode == "ssl_cache_backed" else "independent_waveform_experiment",
-                               initialization="ssl_backbone_fresh_pool_and_head" if cfg.ssl_encoder_checkpoint else ("checkpoint_weights_only" if cfg.initial_checkpoint else "fresh"),
+                               initialization="completed_checkpoint_full_state_resume" if completed_extension else "ssl_backbone_fresh_pool_and_head" if cfg.ssl_encoder_checkpoint else ("checkpoint_weights_only" if cfg.initial_checkpoint else "fresh"),
                                source_checkpoint=cfg.ssl_encoder_checkpoint or cfg.initial_checkpoint,
                                ssl_encoder_sha256=cfg.ssl_encoder_sha256,
                                purpose=purpose, benchmark_result=not cfg.diagnostic,
@@ -170,6 +185,12 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                                total_epoch_seconds=float(history.epoch_seconds.sum()),
                                validation_inference_seconds=val_seconds, test_inference_seconds=test_seconds,
                                inference_timing_scope="full loader pass including I/O and device transfers", **metrics)
+                if completed_extension:
+                    summary.update(resumed_from_epoch=completed_extension["source_epoch"],
+                        resumed_from_dir=completed_extension["source_dir"],
+                        resume_checkpoint_sha256=completed_extension["source_files"]["last.pth"],
+                        epochs_completed=int(history.epoch.iloc[-1]),
+                        scheduler_continuation=trainer.scheduler_continuation)
                 write_json(out / "summary.json", summary)
                 write_json(out / "status.json", dict(status="complete", stage="complete", purpose=purpose,
                                                      benchmark_result=not cfg.diagnostic))

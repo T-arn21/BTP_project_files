@@ -1,3 +1,47 @@
+# Completed SSL-cache-backed epoch extension - 2026-10-30
+
+Implemented full-state resume from completed benchmarks into new experiment
+folders. Only the total epoch cap and required output-root relocation differ;
+all other saved config/classes/model/preprocessing/split metadata remain exact.
+Original best/last and config/history/completion records are snapshot-copied and
+hashed; original result folders are never changed. Historical epochs append
+without duplication, and the best across old/new epochs remains authoritative.
+
+The explicit hold_completed_lr policy restores the original completed scheduler
+and optimizer unchanged, then holds terminal LR instead of resetting/stretching
+or continuing the cosine past its old horizon. Policy is saved in every new
+checkpoint and inherited by exact interruption resume. Model/AdamW/scaler,
+best/early-stopping/history and Torch/CUDA/Python/NumPy/loader/augmentation RNG
+restore. Unsupported worker-local augmentation state and exhausted patience fail.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-extension-release --tb=short
+```
+
+**210 passed, 6 skipped, 8 warnings in 73.72s.** Skips require CUDA Mamba;
+warnings are existing SequentialLR notices. Focused resume coverage includes
+both 5/23-class CPU classifiers, first-step model/optimizer/scaler/RNG state,
+unchanged scheduler state and held LR, epoch 1-10 history, immutable source files,
+interrupted continuation producing identical final weights, strict rejection of
+changed LR/model/preprocessing/labels/splits/epoch cap/policy/history/completion,
+unique full-run discovery and an end-to-end cache-backed experiment extension.
+A final import-only change keeps resume settings validation standard-library-only
+before dependency installation; its focused fresh-interpreter regression and
+all resume cases also passed: **25 passed, 3 existing scheduler warnings in
+16.34s**, using `python -m pytest tests/test_resume_extension.py -q
+--basetemp=outputs/pytest-extension-final --tb=short`.
+
+Both actual epoch-5 result_4 checkpoint pairs in session
+20261029T180106Z_e154ce34 passed offline validation against their saved metadata:
+complete histories, matching best/config/source records, finite model state,
+terminal LR 1e-6, early-stopping counter0. This does not certify newly processed
+live Kaggle metadata: any discrepancy there must still reject.
+Machine-readable source checks/hashes: outputs/completed_resume_validation.json.
+Notebook schema/syntax and exclusive resume configuration pass. Default resume
+flag remains False. No Kaggle execution, real GPU smoke or training was run.
+See ssl_completed_resume.md for exact inputs and first-cell settings.
+
 # Explicit SSL-cache-backed fine-tuning - 2026-10-29
 
 Added the opt-in ssl_data_mode="ssl_cache_backed" route. It authenticates the
