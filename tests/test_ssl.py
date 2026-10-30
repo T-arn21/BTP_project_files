@@ -178,7 +178,7 @@ def test_ssl_unattended_controls_without_supervised_labels(monkeypatch, syntheti
     settings = namespace["SETTINGS"]
     session = tmp_path / "worker_session"
     session.mkdir()
-    settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=str(synthetic_root), SESSION_DIR=str(session),
+    settings.update(RUN_ASL_SUPERCLASS=False, RUN_ASL_SUBCLASS=False, CHECKOUT_DIR=str(root), DATASET_ROOT=str(synthetic_root), SESSION_DIR=str(session),
                     CACHE_DIR=str(tmp_path / "worker_cache"), RUN_SUPERCLASS=False, RUN_SUBCLASS=False,
                     RUN_SMOKE=False, RUN_METADATA_AUDIT=False, RUN_SSL_SMOKE=mode != "no_smoke",
                     RUN_SSL_PRETRAIN=mode != "smoke_only", RUN_SSL_FINETUNE_SMOKE=False,

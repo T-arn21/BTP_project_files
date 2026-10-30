@@ -2,12 +2,40 @@
 from dataclasses import asdict
 import json
 from pathlib import Path
+from contextlib import contextmanager
+from contextvars import ContextVar
+import hashlib
+import os
 import numpy as np
 import pandas as pd
 from .cache import digest_file, preprocessing_identity, select_normalization_ids, ensure_signal_cache
 from .content_identity import resolve_reference_cache
 from .signal import SignalNormalizer
 from .utils import log_progress
+
+
+_AUTH_SCOPE = ContextVar("ssl_cache_authentication", default=None)
+
+
+def _read_only_cache(path):
+    """A stat signature alone cannot protect writable/memory-mapped files."""
+    try:
+        return hasattr(os, "statvfs") and bool(os.statvfs(path).f_flag & os.ST_RDONLY)
+    except OSError:
+        return False
+
+
+@contextmanager
+def cache_authentication_scope():
+    """Reuse a fresh payload hash only within one execution and unchanged files."""
+    if _AUTH_SCOPE.get() is not None:
+        yield
+        return
+    token = _AUTH_SCOPE.set({})
+    try:
+        yield
+    finally:
+        _AUTH_SCOPE.reset(token)
 
 
 def authenticate_cache(state, reference_path):
@@ -17,19 +45,34 @@ def authenticate_cache(state, reference_path):
     if not ids or len(set(ids)) != len(ids) or sorted(source["used_train_ids"]) != ids:
         raise ValueError("SSL cache must cover exactly the complete original training population")
     path, resolution = resolve_reference_cache(reference_path, source)
-    manifest = json.loads(path.with_name("manifest.json").read_text(encoding="utf-8"))
+    manifest_bytes = path.with_name("manifest.json").read_bytes()
+    manifest = json.loads(manifest_bytes)
     pin = source["signal_cache"]["payload_sha256"]
     if (manifest["ids"] != ids or manifest["identity"] != source["preprocessing_identity"] or
             manifest["payload_sha256"] != pin):
         raise ValueError("SSL cache manifest identity, IDs or payload pin differs from authenticated encoder")
-    log_progress(f"Authenticating original SSL training cache SHA256: {path}")
-    if digest_file(path) != pin:
-        raise ValueError("Original SSL training cache SHA256 mismatch")
     shape = (len(ids), 12, state["data_config"]["sampling_rate"] * state["data_config"]["duration"])
-    array = np.load(path, mmap_mode="r", allow_pickle=False)
-    if array.shape != shape or array.dtype != np.dtype("float32"):
-        raise ValueError("Original SSL cache shape/dtype mismatch")
-    del array
+    def signature():
+        stat = path.stat()
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    before = signature()
+    key = (str(path.resolve()), before, pin, shape, hashlib.sha256(manifest_bytes).hexdigest())
+    memo = _AUTH_SCOPE.get()
+    reuse_allowed = memo is not None and _read_only_cache(path)
+    if not reuse_allowed or key not in memo:
+        log_progress(f"Authenticating original SSL training cache SHA256: {path}")
+        if digest_file(path) != pin:
+            raise ValueError("Original SSL training cache SHA256 mismatch")
+        array = np.load(path, mmap_mode="r", allow_pickle=False)
+        if array.shape != shape or array.dtype != np.dtype("float32"):
+            raise ValueError("Original SSL cache shape/dtype mismatch")
+        del array
+        if signature() != before:
+            raise ValueError("Original SSL cache changed during authentication")
+        if reuse_allowed:
+            memo[key] = True
+    else:
+        log_progress("Reusing same-execution SSL cache authentication; file/manifest/pin unchanged")
     SignalNormalizer.from_state_dict(source["normalizer"])
     return dict(path=str(path.resolve()), manifest=manifest, resolution=resolution,
                 payload_sha256=pin, authenticated=True)

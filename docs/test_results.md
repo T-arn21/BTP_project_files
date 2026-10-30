@@ -1,3 +1,58 @@
+# ASL full-classifier second stage - 2026-10-31
+
+Implemented explicit loss_type=bce/asl, stable FP32 ASL with gamma_pos0,
+gamma_neg4, clip.05 and detached focal weights/mean element reduction. ASL
+rejects BCE pos_weight, target smoothing and AMP; the default weighted BCE path
+and smoothing remain intact. Legacy configuration defaults normalize safely,
+while an explicit loss change prevents exact-resume compatibility.
+
+The new stage SHA-pins and preflights both completed epoch-15 validation-selected
+best classifiers, transfers every backbone/pooling/head tensor with strict
+keys/shapes/dtypes, keeps exact class/preprocessing/cache/split metadata and
+starts fresh AdamW/cosine/scaler/history/selection state. Source encoder remains
+required for SSL data provenance only; SSL-only model initialization is skipped.
+Scoped cache hashing is reused only on read-only filesystems with unchanged
+identity/manifest/payload pin; writable files are rehashed, including mapped
+writes whose Windows stat signature may not change. No saved report authorizes
+reuse across executions. Missing inputs are checked with standard-library-only
+path/sidecar preflight before CUDA installation/probes.
+
+The notebook pins the user-confirmed arnavvt/checkpoint-2 paths, epoch7/14 model
+hashes, both ASL task flags and five full-data FP32 epochs at LR1e-5/min1e-6,
+batch2, fresh cosine/no warmup. All other training/smoke/diagnostic flags are off.
+One new directory per task exports both validation/test threshold variants,
+per-class predictions/metrics, threshold comparison CSV, source/reset provenance,
+new checkpoints/history and ASL-labeled curves. Old outputs remain unchanged.
+
+```powershell
+$env:MPLBACKEND = 'Agg'
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-asl-release --tb=short
+```
+
+**239 passed, 6 skipped, 8 existing scheduler warnings in 512.11s.** CUDA Mamba
+tests are skipped on this CPU host. Final focused validation after the lightweight
+preflight and worker additions: **31 passed in 96.37s**, using
+`python -m pytest tests/test_asl.py -q --basetemp=outputs/pytest-asl-final-worker --tb=short`.
+The final ASL/controller subset also passed 38 checks before the last worker test.
+Coverage includes extreme logits/finite gradients, ASL formula/BCE limit,
+no global grad-mode corruption, disabled BCE controls, complete model transfer,
+new optimizer/scheduler, class/data/config/selection/hash rejection, dtype
+rejection, metadata/history and four threshold exports, plus two-task CPU worker
+routing with exactly one simulated immutable-cache hash. Legacy workflow tests
+explicitly select their own flags rather than inheriting the new ASL task defaults.
+Notebook schema/all code-cell syntax, exact recipe and both confirmed paths pass.
+
+Read-only local binary preflight verified real superclass epoch7 SHA
+4f2fba212204d399a1f8dc79ae9e22d9d0d879eba88471d39e19b0a61d9c9c94 and subclass
+epoch14 SHA 85abb89239b9c7a9a15119cc93f11e66308324d3f800f8d2374db4770e028380,
+5/23-class vocabularies and source history selection/completion at epoch15.
+Source session environment was Tesla T4/CUDA12.8. Rough runtime estimate is
+3.5-4.5 GPU hours total, based on prior measured ~21.9-minute epochs, plus setup.
+No Kaggle execution, GPU smoke or full GPU training was launched here; the CPU
+stage tests use tiny synthetic classifier doubles, not real Mamba benchmarks.
+See asl_second_stage.md for the precise data inputs, loss semantics and settings.
+
 # Completed SSL-cache-backed epoch extension - 2026-10-30
 
 Implemented full-state resume from completed benchmarks into new experiment

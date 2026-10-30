@@ -15,7 +15,7 @@ FILES = ("last.pth", "best.pth", "config.json", "summary.json", "status.json", "
 def validate_resume_settings(settings):
     competing = [key for key in ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT",
         "RUN_SSL_SMOKE", "RUN_SSL_PRETRAIN", "RUN_SSL_FINETUNE_SMOKE", "RUN_SSL_FINETUNE_SUPERCLASS",
-        "RUN_SSL_FINETUNE_SUBCLASS", "SSL_FINETUNE_PROVENANCE_ONLY") if settings.get(key, False)]
+        "RUN_SSL_FINETUNE_SUBCLASS", "RUN_ASL_SUPERCLASS", "RUN_ASL_SUBCLASS", "SSL_FINETUNE_PROVENANCE_ONLY") if settings.get(key, False)]
     if competing or settings.get("SSL_FINETUNE_RESUME_SCHEDULER_POLICY") != POLICY:
         raise ValueError(f"Completed resume must be explicit and exclusive, with scheduler policy {POLICY}; competing={competing}")
 

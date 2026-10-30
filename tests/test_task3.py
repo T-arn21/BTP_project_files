@@ -192,6 +192,7 @@ def test_final_notebook_order_and_disabled_execution(monkeypatch):
             source = source.replace("RUN_SUPERCLASS = True", "RUN_SUPERCLASS = False").replace("RUN_SUBCLASS = True", "RUN_SUBCLASS = False")
             source = source.replace("RUN_SMOKE = True", "RUN_SMOKE = False").replace("RUN_METADATA_AUDIT = True", "RUN_METADATA_AUDIT = False")
             source = source.replace("RUN_SSL_FINETUNE_SMOKE = True", "RUN_SSL_FINETUNE_SMOKE = False")
+            source = source.replace("RUN_ASL_SUPERCLASS = True", "RUN_ASL_SUPERCLASS = False").replace("RUN_ASL_SUBCLASS = True", "RUN_ASL_SUBCLASS = False")
         exec(compile(source, "05_btp_kaggle_final", "exec"), namespace)
     assert tags == ["final-config", "final-bootstrap", "final-summary"]
     assert not namespace["ACTIVE"] and namespace["EXECUTION_SUMMARY"]["status"] == "skipped"
@@ -232,7 +233,7 @@ def test_final_pipeline_sequential_cpu_adapters(monkeypatch, synthetic_root, tmp
     session.mkdir()
     settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=str(synthetic_root), SESSION_DIR=str(session),
                     CACHE_DIR=str(tmp_path / "signals_cache"), FULL_EPOCHS=1, FULL_BATCH_SIZE=4,
-                    CONTINUATION_SESSION_ID="", RUN_SUPERCLASS=True, RUN_SUBCLASS=True, RUN_SMOKE=True,
+                    RUN_ASL_SUPERCLASS=False, RUN_ASL_SUBCLASS=False, CONTINUATION_SESSION_ID="", RUN_SUPERCLASS=True, RUN_SUBCLASS=True, RUN_SMOKE=True,
                     RUN_METADATA_AUDIT=True, RUN_SSL_FINETUNE_SMOKE=False, SSL_FINETUNE_PROVENANCE_ONLY=False,
                     NORMALIZATION_SAMPLES=4, SMOKE_FIT_RECORDS=4, DIAGNOSTIC_MODE=diagnostic)
     assert run_worker(settings) == 0

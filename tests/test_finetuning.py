@@ -166,7 +166,7 @@ def test_finetuning_workflow_opt_in_and_stage_order(source, monkeypatch, tmp_pat
     settings = ns["SETTINGS"]
     session = tmp_path / "worker_session"
     session.mkdir()
-    settings.update(CHECKOUT_DIR=str(root), DATASET_ROOT=cfg.data.data_dir, SESSION_DIR=str(session),
+    settings.update(RUN_ASL_SUPERCLASS=False, RUN_ASL_SUBCLASS=False, CHECKOUT_DIR=str(root), DATASET_ROOT=cfg.data.data_dir, SESSION_DIR=str(session),
         CACHE_DIR=cfg.data.cache_dir, RUN_SUPERCLASS=False, RUN_SUBCLASS=False, RUN_SMOKE=False,
         RUN_METADATA_AUDIT=False, RUN_SSL_FINETUNE_SMOKE=mode != "missing_smoke",
         RUN_SSL_FINETUNE_SUPERCLASS=mode in {"full_after_smokes", "missing_smoke", "failed_smoke", "audit_conflict"},

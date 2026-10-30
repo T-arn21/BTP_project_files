@@ -3,15 +3,11 @@
 The repository supports supervised Mamba on PTB-XL and **Milestone 2 masked
 waveform reconstruction SSL**, using the same encoder and preprocessing.
 Use **`05_btp_kaggle_final.ipynb`** as the primary Kaggle execution notebook.
-Its current defaults run both **SSL-cache-backed GPU smokes only**, using the original
-authenticated training cache and normalizer. Full fine-tuning and baseline runs stay disabled.
-See [exact inputs and smoke settings](docs/ssl_cache_backed_finetuning.md).
-Completed runs can opt into [epoch-5 to epoch-10 full-state resume](docs/ssl_completed_resume.md)
-in new folders, with all other settings/provenance fixed and an explicit terminal-LR policy.
-The separate independent-audit mode retains strict byte-equivalence checks; see
-[normalizer evidence](docs/ssl_normalizer_migration.md) for the confirmed CPU differences.
-No extra encoder architectures are added. SSL pretraining is opt-in and full
-pretraining has not been executed here. See [SSL settings and outputs](docs/ssl_pretraining.md).
+Its current defaults select **ASL second-stage runs for both tasks** from the verified
+epoch-15 best classifiers, with all other training/smoke modes disabled. These are
+new FP32 five-epoch experiments with fresh AdamW/cosine scheduling and complete
+classifier weight loading. Review [exact ASL inputs/settings](docs/asl_second_stage.md)
+before Run All. No GPU execution has been launched by this code preparation.
 
 SSL-pretrained classification fine-tuning is also opt-in for both label tasks.
 It pins the user's completed epoch-20 encoder SHA256, validates source/live data

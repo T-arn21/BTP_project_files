@@ -1,5 +1,8 @@
 # Explicit SSL-cache-backed Mamba fine-tuning
 
+Current notebook task defaults now select [ASL second-stage fine-tuning](asl_second_stage.md).
+Turn both RUN_ASL_* flags off before selecting the workflow in this guide.
+
 ## Experiment definition and strict boundaries
 
 `SSL_FINETUNE_DATA_MODE="ssl_cache_backed"` explicitly selects original SSL
@@ -75,6 +78,7 @@ values are inside the pinned encoder. All source files remain read-only.
 The updated `05_btp_kaggle_final.ipynb` already selects:
 
 ```python
+RUN_ASL_SUPERCLASS = RUN_ASL_SUBCLASS = False
 RUN_SUPERCLASS = RUN_SUBCLASS = RUN_SMOKE = RUN_METADATA_AUDIT = False
 RUN_SSL_SMOKE = RUN_SSL_PRETRAIN = False
 RUN_SSL_FINETUNE_SMOKE = True

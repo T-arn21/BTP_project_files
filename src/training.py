@@ -57,14 +57,20 @@ def load_checkpoint(path, model, class_names=None, device="cpu"):
 class Trainer:
     def __init__(self, model, config, class_names, directory, pos_weight=None, metadata=None):
         init_start = perf_counter()
-        log_progress("Trainer initialization: moving model, creating BCE/AdamW/scheduler")
+        log_progress(f"Trainer initialization: moving model, creating {config.loss_type.upper()}/AdamW/scheduler")
         self.config, self.class_names = config, list(class_names)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if config.device == "auto" else torch.device(config.device)
         self.model = model.to(self.device)
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.metadata = metadata or {}
-        self.criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight.to(self.device).float() if pos_weight is not None else None)
+        if config.loss_type == "asl":
+            from .losses import AsymmetricLoss
+            if pos_weight is not None or config.use_pos_weight or config.label_smoothing != 0 or config.mixed_precision:
+                raise ValueError("ASL must not receive BCE pos_weight/smoothing or mixed precision")
+            self.criterion = AsymmetricLoss(config.asl_gamma_pos, config.asl_gamma_neg, config.asl_clip)
+        else:
+            self.criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight.to(self.device).float() if pos_weight is not None else None)
         self.optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
         warmup = min(max(config.warmup_epochs, 0), config.epochs - 1)
         if warmup:
@@ -78,11 +84,13 @@ class Trainer:
         self.scheduler_continuation = None
         self.current_epoch, self.batch_index, self.stage = 0, 0, "initialization"
         self._batch = dict(record_ids=[], inputs=None, targets=None, loss_targets=None, logits=None, loss=None)
-        weights = self.criterion.pos_weight
+        weights = getattr(self.criterion, "pos_weight", None)
         if weights is not None and (weights.shape != (len(self.class_names),) or not tensor_finite(weights) or (weights < 0).any()):
             self._fail("Invalid positive-class weights", "class_weights")
         self._check_state("initialization")
         write_json(self.directory / "numerical_settings.json", dict(
+            loss_type=config.loss_type, asl=dict(gamma_pos=config.asl_gamma_pos, gamma_neg=config.asl_gamma_neg,
+                clip=config.asl_clip, focal_weight_gradient="detached", reduction="mean_batch_and_labels") if config.loss_type == "asl" else None,
             numerical_stability_mode=config.numerical_stability_mode, mixed_precision_requested=config.mixed_precision,
             amp_enabled=self.scaler.is_enabled(), learning_rate=config.learning_rate,
             loss_computation="float32_autocast_disabled", grad_clip_norm=config.grad_clip_norm,
@@ -95,7 +103,7 @@ class Trainer:
         failure_report(self.directory, reason=reason, phase=phase, epoch=self.current_epoch,
                        batch_index=self.batch_index, stage=self.stage, **self._batch,
                        model=self.model, optimizer=self.optimizer, scaler=self.scaler, config=self.config,
-                       pos_weight=self.criterion.pos_weight, normalization=self.metadata.get("normalizer"), detail=detail)
+                       pos_weight=getattr(self.criterion, "pos_weight", None), normalization=self.metadata.get("normalizer"), detail=detail)
 
     def _check_state(self, phase):
         if not named_finite(list(self.model.named_parameters())):
@@ -147,7 +155,7 @@ class Trainer:
                 loss = fp32_bce(self.criterion, logits, targets)
                 self._batch["loss"] = loss
                 if not tensor_finite(loss):
-                    self._fail("Nonfinite BCE loss", "loss")
+                    self._fail(f"Nonfinite {self.config.loss_type.upper()} loss", "loss")
                 if train:
                     self.scaler.scale(loss).backward()
                     self.scaler.unscale_(self.optimizer)
@@ -168,7 +176,7 @@ class Trainer:
             if batch_index == 1 or batch_index % self.config.log_every_batches == 0 or perf_counter() - last_log >= 15 or batch_index == len(loader):
                 if self.device.type == "cuda":
                     torch.cuda.synchronize(self.device)
-                log_progress(f"{stage} batch {batch_index}/{len(loader)}: BCE={loss.item():.4f}, elapsed={perf_counter() - epoch_start:.1f}s, data_wait={data_wait:.2f}s" + ("; optimizer step completed" if train else ""))
+                log_progress(f"{stage} batch {batch_index}/{len(loader)}: {self.config.loss_type.upper()}={loss.item():.4f}, elapsed={perf_counter() - epoch_start:.1f}s, data_wait={data_wait:.2f}s" + ("; optimizer step completed" if train else ""))
                 last_log = perf_counter()
             total += loss.item() * len(y)
             count += len(y)

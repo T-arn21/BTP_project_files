@@ -122,14 +122,14 @@ def export_evaluation(directory, labels, probabilities, ids, class_names, thresh
     return overall
 
 
-def plot_results(history, table, directory):
+def plot_results(history, table, directory, loss_label="BCE loss"):
     import matplotlib.pyplot as plt
     out = Path(directory)
     out.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(7, 4))
     for column in ("train_loss", "val_loss"):
         ax.plot(history["epoch"], history[column], label=column)
-    ax.set(xlabel="Epoch", ylabel="BCE loss")
+    ax.set(xlabel="Epoch", ylabel=loss_label)
     ax.legend()
     fig.tight_layout()
     fig.savefig(out / "loss_curves.png", dpi=150)

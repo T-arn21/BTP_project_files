@@ -13,7 +13,7 @@ def cpu_provenance_only(settings):
     if not settings.get("SSL_FINETUNE_PROVENANCE_ONLY", False):
         return False
     forbidden = ("RUN_SUPERCLASS", "RUN_SUBCLASS", "RUN_SMOKE", "RUN_METADATA_AUDIT",
-                 "RUN_SSL_SMOKE", "RUN_SSL_PRETRAIN", "RUN_SSL_FINETUNE_SUPERCLASS", "RUN_SSL_FINETUNE_SUBCLASS", "RUN_SSL_FINETUNE_RESUME")
+                 "RUN_SSL_SMOKE", "RUN_SSL_PRETRAIN", "RUN_SSL_FINETUNE_SUPERCLASS", "RUN_SSL_FINETUNE_SUBCLASS", "RUN_SSL_FINETUNE_RESUME", "RUN_ASL_SUPERCLASS", "RUN_ASL_SUBCLASS")
     enabled = [key for key in forbidden if settings.get(key, False)]
     if enabled or not settings.get("RUN_SSL_FINETUNE_SMOKE", False):
         raise ValueError(f"CPU provenance-only execution requires RUN_SSL_FINETUNE_SMOKE=True as the audit selector and all other run flags False; enabled={enabled}")
@@ -39,6 +39,12 @@ def controller(settings, config_path):
     summary_path = session / "final_summary.json"
     save_summary(summary_path, summary)
     try:
+        if any(settings.get(key, False) for key in ("RUN_ASL_SUPERCLASS", "RUN_ASL_SUBCLASS")):
+            from .asl_stage import validate_asl_settings, preflight_asl_paths
+            validate_asl_settings(settings)
+            summary["stage"] = "ASL input path preflight"
+            save_summary(summary_path, summary)
+            save_summary(session / "asl_path_preflight.json", preflight_asl_paths(settings))
         if settings.get("RUN_SSL_FINETUNE_RESUME", False):
             from .resume_extension import validate_resume_settings
             validate_resume_settings(settings)
@@ -86,6 +92,9 @@ def run_worker(settings):
         summary["checks"][name] = "passed"
         save_summary(summary_path, summary)
     try:
+        if any(settings.get(key, False) for key in ("RUN_ASL_SUPERCLASS", "RUN_ASL_SUBCLASS")):
+            from .asl_stage import validate_asl_settings
+            validate_asl_settings(settings)
         if settings.get("RUN_SSL_FINETUNE_RESUME", False):
             from .resume_extension import validate_resume_settings
             validate_resume_settings(settings)
@@ -197,6 +206,47 @@ def run_worker(settings):
                 finally:
                     gc.collect()
                     torch.cuda.empty_cache()
+        asl_tasks = [task for task in ("superclass", "subclass") if settings.get(f"RUN_ASL_{task.upper()}", False)]
+        if asl_tasks:
+            from .asl_stage import resolve_asl_sources, asl_config
+            from .ssl_cache_backed import cache_authentication_scope
+            paths = resolve_asl_sources(settings)
+            configs = {}
+            # Preflight both selected checkpoints before any classifier training.
+            stage = "ASL full-classifier source preflight"
+            summary["stage"] = stage
+            with stage_log(session, stage):
+                for task in asl_tasks:
+                    configs[task] = asl_config(paths[task], settings["ASL_CHECKPOINT_SHA256"][task],
+                        settings["ASL_SOURCE_BEST_EPOCHS"][task], session / "asl_stage2", settings.get("ASL_STAGE_SETTINGS"))
+                    if configs[task].task != task:
+                        raise ValueError("ASL source task/vocabulary mismatch")
+                write_json(session / "asl_source_configs.json", {task: asdict(cfg) for task, cfg in configs.items()})
+            with cache_authentication_scope():
+                for task, task_config in configs.items():
+                    stage = f"asl_{task}"
+                    summary["stage"] = stage
+                    summary["experiments"][stage] = {"status": "running"}
+                    save_summary(summary_path, summary)
+                    try:
+                        with stage_log(session, stage):
+                            result = run_experiment(config=task_config)
+                            directory = Path(result["output_dir"])
+                            required = ["best.pth", "last.pth", "history.csv", "full_classifier_initialization.json",
+                                "config.json", "data_manifest.json", "summary.json", "thresholds.json", "threshold_comparison.csv"]
+                            required += [f"{split}/{name}" for split in ("validation", "validation_at_0.5", "test", "test_at_0.5")
+                                         for name in ("metrics.json", "per_class.csv", "predictions.csv")]
+                            if any(not (directory / name).is_file() for name in required):
+                                raise RuntimeError("Incomplete ASL outputs")
+                        summary["completed"][stage] = {"output_dir": result["output_dir"], "summary": result["summary"]}
+                        summary["experiments"][stage] = {"status": "complete", "output_dir": result["output_dir"]}
+                        passed(stage)
+                    except Exception as exc:
+                        summary["experiments"][stage] = {"status": "failed", "error": str(exc)}
+                        raise
+                    finally:
+                        gc.collect()
+                        torch.cuda.empty_cache()
         if settings.get("RUN_SSL_FINETUNE_RESUME", False):
             from .resume_extension import resolve_completed_runs, config_from_completed_run
             directories = resolve_completed_runs(settings)

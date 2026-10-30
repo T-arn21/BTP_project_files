@@ -1,5 +1,8 @@
 # Resume completed SSL-cache-backed runs from epoch 5 to 10
 
+Current notebook task defaults now select [ASL second-stage fine-tuning](asl_second_stage.md).
+Turn both RUN_ASL_* flags off before selecting the workflow in this guide.
+
 This is an explicitly selected **full-state resume into new experiment folders**.
 It loads the trained classifier from last.pth, including its trained pooling/head;
 it does not reinitialize from the SSL encoder or run new diagnostic smokes.
@@ -82,6 +85,7 @@ Update/import the latest 05_btp_kaggle_final.ipynb. Before Run All, edit the
 existing assignments before SETTINGS is collected:
 
 ```python
+RUN_ASL_SUPERCLASS = RUN_ASL_SUBCLASS = False
 RUN_SUPERCLASS = RUN_SUBCLASS = RUN_SMOKE = RUN_METADATA_AUDIT = False
 RUN_SSL_SMOKE = RUN_SSL_PRETRAIN = False
 RUN_SSL_FINETUNE_SMOKE = False

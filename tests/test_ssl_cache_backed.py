@@ -116,10 +116,11 @@ def test_smoke_exports_record_mode_and_original_normalizer(source, monkeypatch):
     assert (out / "ssl_smoke_gradients.json").is_file() and not (out / "test").exists()
 
 
-def test_notebook_gpu_smoke_only_defaults():
+def test_explicit_legacy_gpu_smoke_configuration():
     nb = json.loads((Path(__file__).parents[1] / "05_btp_kaggle_final.ipynb").read_text())
     namespace = {}; exec("".join(nb["cells"][1]["source"]), namespace)
     settings = namespace["SETTINGS"]
+    settings.update(RUN_ASL_SUPERCLASS=False, RUN_ASL_SUBCLASS=False, RUN_SSL_FINETUNE_SMOKE=True)
     assert namespace["NEED_GPU"] and settings["RUN_SSL_FINETUNE_SMOKE"]
     assert not settings["SSL_FINETUNE_PROVENANCE_ONLY"]
     assert settings["SSL_FINETUNE_DATA_MODE"] == "ssl_cache_backed"
@@ -142,6 +143,7 @@ def test_worker_runs_only_both_cache_backed_smokes(source, tmp_path, monkeypatch
     nb = json.loads((root / "05_btp_kaggle_final.ipynb").read_text())
     namespace = {}; exec("".join(nb["cells"][1]["source"]), namespace)
     settings = namespace["SETTINGS"]
+    settings.update(RUN_ASL_SUPERCLASS=False, RUN_ASL_SUBCLASS=False, RUN_SSL_FINETUNE_SMOKE=True)
     session = tmp_path / "smoke_worker"; session.mkdir()
     settings.update(SESSION_DIR=str(session), CHECKOUT_DIR=str(root), DATASET_ROOT=cfg.data.data_dir,
         CACHE_DIR=cfg.data.cache_dir, DATASET_VERSION=cfg.data.dataset_version, MODEL_SETTINGS=asdict(cfg.model),

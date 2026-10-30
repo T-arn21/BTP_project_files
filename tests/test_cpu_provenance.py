@@ -12,7 +12,7 @@ def notebook_settings():
     nb = json.loads((Path(__file__).parents[1] / "05_btp_kaggle_final.ipynb").read_text())
     namespace = {}
     exec("".join(nb["cells"][1]["source"]), namespace)
-    namespace["SETTINGS"].update(SSL_FINETUNE_PROVENANCE_ONLY=True, SSL_FINETUNE_DATA_MODE="independent")
+    namespace["SETTINGS"].update(RUN_ASL_SUPERCLASS=False, RUN_ASL_SUBCLASS=False, RUN_SSL_FINETUNE_SMOKE=True, SSL_FINETUNE_PROVENANCE_ONLY=True, SSL_FINETUNE_DATA_MODE="independent")
     return namespace
 
 

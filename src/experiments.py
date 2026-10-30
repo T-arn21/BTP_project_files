@@ -14,6 +14,7 @@ from .models.registry import create_model
 from .training import Trainer, make_pos_weight, load_checkpoint
 from .continuation import verify_initial_provenance
 from .cache import digest_file
+from .ssl_cache_backed import cache_authentication_scope
 from .evaluation import predict, tune_thresholds, evaluate, export_evaluation, plot_results
 from .utils import seed_everything, write_json, environment_info, log_progress
 
@@ -37,6 +38,7 @@ def diagnostic_limits(config):
             "val": config.diagnostic_batches * config.batch_size}
 
 
+@cache_authentication_scope()
 def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                    data_dir=None, config=None, *, run_dir=None, resume_from=None,
                    prepared_data=None, resume_completed_from=None, scheduler_policy=None):
@@ -101,7 +103,7 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 model = create_model(cfg.model_name, len(data.class_names), cfg.model)
                 loaders = data.loaders(cfg.batch_size)
                 pos_weight = make_pos_weight(data.labels.loc[data.splits["train"]].to_numpy(), cfg.pos_weight_max) if cfg.use_pos_weight else None
-                if cfg.ssl_encoder_checkpoint and not resume_from:
+                if cfg.ssl_encoder_checkpoint and not resume_from and cfg.initial_checkpoint_mode != "ssl_full_classifier":
                     from .finetuning import initialize_ssl_backbone
                     stage = "SSL encoder SHA256/provenance validation and backbone transfer"
                     try:
@@ -118,8 +120,14 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                 if cfg.initial_checkpoint and not resume_from:
                     log_progress("Loading explicitly selected finite checkpoint weights into a NEW run; optimizer/scheduler/scaler reset")
                     try:
-                        initial = load_checkpoint(cfg.initial_checkpoint, model, data.class_names, "cpu")
-                        verification = verify_initial_provenance(initial, cfg, metadata, data.class_names)
+                        if cfg.initial_checkpoint_mode == "ssl_full_classifier":
+                            from .asl_stage import initialize_full_classifier
+                            verification = initialize_full_classifier(model, cfg, data, metadata)
+                            initial = {"epoch": verification["epoch"]}
+                            write_json(out / "full_classifier_initialization.json", verification)
+                        else:
+                            initial = load_checkpoint(cfg.initial_checkpoint, model, data.class_names, "cpu")
+                            verification = verify_initial_provenance(initial, cfg, metadata, data.class_names)
                     except ValueError as exc:
                         write_json(out / "checkpoint_failure.json", {"checkpoint": cfg.initial_checkpoint, "error": str(exc)})
                         raise
@@ -165,17 +173,29 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     thresholds = tune_thresholds(yv, pv, split="val")
                     write_json(out / "thresholds.json", {"source_split": "val", "class_names": data.class_names,
                                                         "values": thresholds.tolist(), "best_epoch": best_epoch})
-                    export_evaluation(out / "validation", yv, pv, iv, data.class_names, thresholds)
+                    validation_metrics = export_evaluation(out / "validation", yv, pv, iv, data.class_names, thresholds)
+                    if cfg.loss_type == "asl":
+                        validation_fixed_metrics = export_evaluation(out / "validation_at_0.5", yv, pv, iv, data.class_names, 0.5)
                     stage = "held-out test evaluation and exports"
                     yt, pt, it, test_seconds = predict(model, loaders["test"], trainer.device, cfg.data.layout)
                     metrics = export_evaluation(out / "test", yt, pt, it, data.class_names, thresholds)
-                    export_evaluation(out / "test_at_0.5", yt, pt, it, data.class_names, 0.5)
+                    test_fixed_metrics = export_evaluation(out / "test_at_0.5", yt, pt, it, data.class_names, 0.5)
                     _, table = evaluate(yt, pt, data.class_names, thresholds)
-                plot_results(history, table, out / "figures")
+                if cfg.loss_type == "asl":
+                    if not cfg.diagnostic:
+                        import pandas as pd
+                        pd.DataFrame([dict(split=split, threshold_policy=policy, **values)
+                            for split, policy, values in (("validation", "fixed_0.5", validation_fixed_metrics),
+                                ("validation", "validation_tuned", validation_metrics), ("test", "fixed_0.5", test_fixed_metrics),
+                                ("test", "validation_tuned", metrics))]).to_csv(out / "threshold_comparison.csv", index=False)
+                    plot_results(history, table, out / "figures", loss_label="ASL loss")
+                else:
+                    plot_results(history, table, out / "figures")
                 summary = dict(model_name=cfg.model_name, task=cfg.task, best_epoch=best_epoch,
-                               experiment_kind="ssl_cache_backed_finetuning" if cfg.ssl_data_mode == "ssl_cache_backed" else "independent_waveform_experiment",
-                               initialization="completed_checkpoint_full_state_resume" if completed_extension else "ssl_backbone_fresh_pool_and_head" if cfg.ssl_encoder_checkpoint else ("checkpoint_weights_only" if cfg.initial_checkpoint else "fresh"),
-                               source_checkpoint=cfg.ssl_encoder_checkpoint or cfg.initial_checkpoint,
+                               loss_type=cfg.loss_type,
+                               experiment_kind="ssl_cache_backed_asl_stage2" if cfg.initial_checkpoint_mode == "ssl_full_classifier" and cfg.loss_type == "asl" else "ssl_cache_backed_finetuning" if cfg.ssl_data_mode == "ssl_cache_backed" else "independent_waveform_experiment",
+                               initialization="verified_full_classifier_all_weights" if cfg.initial_checkpoint_mode == "ssl_full_classifier" else "completed_checkpoint_full_state_resume" if completed_extension else "ssl_backbone_fresh_pool_and_head" if cfg.ssl_encoder_checkpoint else ("checkpoint_weights_only" if cfg.initial_checkpoint else "fresh"),
+                               source_checkpoint=cfg.initial_checkpoint if cfg.initial_checkpoint_mode == "ssl_full_classifier" else cfg.ssl_encoder_checkpoint or cfg.initial_checkpoint,
                                ssl_encoder_sha256=cfg.ssl_encoder_sha256,
                                purpose=purpose, benchmark_result=not cfg.diagnostic,
                                train_records=len(data.splits["train"]), validation_records=len(data.splits["val"]),
