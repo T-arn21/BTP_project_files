@@ -50,7 +50,7 @@ Their saved absolute paths are inherited unchanged. Encoder pin remains
 `8d99bd77ad9c65e15519cc744c57a1e683e0accd34fa8724c6a5382cdf1e38d4`.
 
 Attach the downloaded **results_4/btp_outputs** as an additional Kaggle dataset,
-retaining its directory tree (its dataset slug is not known here). The unique
+retaining its directory tree. The user confirmed its mount is `/kaggle/input/checkpoint_2`. The unique
 completed session ID is `20261029T180106Z_e154ce34`. Under that input mount:
 
 ```text
@@ -89,8 +89,11 @@ RUN_SSL_FINETUNE_SUPERCLASS = RUN_SSL_FINETUNE_SUBCLASS = False
 SSL_FINETUNE_PROVENANCE_ONLY = False
 RUN_SSL_FINETUNE_RESUME = True
 SSL_FINETUNE_RESUME_SESSION_ID = "20261029T180106Z_e154ce34"
-SSL_FINETUNE_RESUME_ARTIFACT_ROOT = ""  # auto-find unique session under /kaggle/input
-SSL_FINETUNE_RESUME_RUN_DIRS = {"superclass": "", "subclass": ""}
+SSL_FINETUNE_RESUME_ARTIFACT_ROOT = "/kaggle/input/checkpoint_2"
+SSL_FINETUNE_RESUME_RUN_DIRS = {
+    "superclass": "/kaggle/input/checkpoint_2/btp_outputs/sessions/20261029T180106Z_e154ce34/ssl_finetuning/full/benchmark/mamba_superclass_20261029T180304Z_bb3fcff5",
+    "subclass": "/kaggle/input/checkpoint_2/btp_outputs/sessions/20261029T180106Z_e154ce34/ssl_finetuning/full/benchmark/mamba_subclass_20261029T200603Z_991377cb",
+}
 SSL_FINETUNE_RESUME_TO_EPOCHS = 10
 SSL_FINETUNE_RESUME_SCHEDULER_POLICY = "hold_completed_lr"
 ```
@@ -100,8 +103,10 @@ A unique session and exactly one full benchmark folder per task are required.
 If two attached datasets contain the same session, set ARTIFACT_ROOT to the
 specific input mount (or the exact session directory). Alternatively set both
 RUN_DIRS values to their full `<input-mount>/btp_outputs/sessions/...` folders;
-explicit run directories take precedence over session discovery. Task mismatches
-and missing files reject. No dataset slug is guessed.
+The supplied notebook now pins both confirmed directories above; clear both
+RUN_DIRS values to opt back into discovery. Explicit run directories take precedence
+over session discovery. Task mismatches
+and missing files reject. The checkpoint_2 mount is user-confirmed; no dataset slug is guessed.
 
 `SSL_FINETUNE_SETTINGS`, FULL_EPOCHS and other smoke/training overrides do not
 change resumed settings: the source config is authoritative. Changing only the
