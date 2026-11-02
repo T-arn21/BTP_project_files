@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 import hashlib
 import os
 import numpy as np
@@ -135,6 +136,12 @@ def prepare_cache_backed_data(metadata, labels, splits, missing, config, seed, r
                 dataset.cache_path = heldout_path
                 dataset.cache_rows = {ecg_id: row for row, ecg_id in enumerate(manifest["ids"])}
         provenance["ssl_cache_backed"]["heldout_cache"] = dict(path=heldout_path, payload_sha256=manifest["payload_sha256"])
+        # Runtime-only receipt of ensure_signal_cache's payload verification/build.
+        # Never deserialize a saved receipt or hash the large payload again here.
+        data._verified_heldout_cache = deepcopy(dict(path=heldout_path,
+            payload_sha256=manifest["payload_sha256"], identity=identity, ids=manifest["ids"]))
+        stat = Path(heldout_path).stat()
+        data._verified_heldout_cache_stat = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
     log_progress(f"SSL-cache-backed data: {len(splits['train'])} training ECGs from original cache; "
                  f"{len(heldout_ids)} held-out ECGs; no training preprocessing/normalizer fit")
     return data

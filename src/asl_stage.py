@@ -145,8 +145,67 @@ def asl_config(path, pin, best_epoch, output_root, settings=None):
     return ExperimentConfig(**saved)
 
 
-def initialize_full_classifier(model, config, data, metadata):
+def classifier_metadata_report(state, data, metadata):
+    """Only relocate held-out caches with identical, already verified payloads.
+
+    Raw stat signatures include mtime, not signal content. This exception never
+    applies to the original SSL training cache or to any other provenance field.
+    """
     from .provenance import field_differences
+    allowed = {"provenance.preprocessing_identity.raw_file_stats_sha256",
+        "provenance.ssl_cache_backed.heldout_preprocessing_identity.raw_file_stats_sha256",
+        "provenance.ssl_cache_backed.heldout_cache.path"}
+    differences = field_differences(state["metadata"], metadata)
+    differences += field_differences(state["class_names"], data.class_names, "class_names")
+    checks = {}
+    if differences and all(d["field"] in allowed and d["expected_present"] and d["actual_present"] for d in differences):
+        def sha(value):
+            return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+        old = state["metadata"]["provenance"]
+        current = metadata["provenance"]
+        binding = current.get("ssl_cache_backed", {})
+        prior = old.get("ssl_cache_backed", {})
+        cache, prior_cache = binding.get("heldout_cache", {}), prior.get("heldout_cache", {})
+        receipt = getattr(data, "_verified_heldout_cache", {})
+        ids = binding.get("heldout_record_ids", [])
+        expected_rows = {ecg_id: row for row, ecg_id in enumerate(ids)}
+        original = binding.get("original_training_cache", {})
+        version = current.get("declared_dataset_version")
+        try:
+            stat = Path(cache["path"]).stat()
+            unchanged = getattr(data, "_verified_heldout_cache_stat", None) == (stat.st_dev, stat.st_ino,
+                stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+        except (OSError, KeyError, TypeError):
+            unchanged = False
+        checks = dict(
+            cache_backed_mode=binding.get("mode") == prior.get("mode") == "ssl_cache_backed_finetuning",
+            dataset_version=bool(version) and version == old.get("declared_dataset_version")
+                == current.get("preprocessing_identity", {}).get("declared_version"),
+            heldout_payload_identical=sha(cache.get("payload_sha256")) and cache.get("payload_sha256") == prior_cache.get("payload_sha256"),
+            original_training_cache_authenticated=original.get("authenticated") is True and sha(original.get("payload_sha256")),
+            heldout_payload_verified_this_load=bool(receipt) and receipt == dict(path=cache.get("path"),
+                payload_sha256=cache.get("payload_sha256"), identity=current.get("preprocessing_identity"), ids=ids),
+            heldout_cache_unchanged_since_verification=unchanged,
+            duplicate_identities_consistent=all(p.get("preprocessing_identity") == p.get("ssl_cache_backed", {}).get("heldout_preprocessing_identity")
+                and sha(p.get("preprocessing_identity", {}).get("raw_file_stats_sha256")) for p in (old, current)),
+            live_metadata_bound=metadata["provenance"] == data.provenance and metadata["normalizer"] == data.normalizer.state_dict()
+                and metadata["splits"] == {name: list(map(int, values)) for name, values in data.splits.items()},
+            original_normalizer_bound=all(ds.normalizer.state_dict() == metadata["normalizer"] for ds in data.datasets.values()),
+            heldout_datasets_bound=bool(ids) and all(ds.cache_path == cache.get("path") and ds.cache_rows == expected_rows
+                and ds.ids == list(data.splits[name]) for name, ds in data.datasets.items() if name != "train"),
+        )
+        if all(checks.values()):
+            for difference in differences:
+                difference["accepted"] = True
+    blocked = sum(not d["accepted"] for d in differences)
+    return dict(status="rejected" if blocked else ("passed_verified_heldout_cache_relocation" if differences else "passed_exact"),
+        mismatches=differences, blocking_mismatch_count=blocked, compatibility_checks=checks,
+        heldout_signal_identity={name: value.get("provenance", {}).get("ssl_cache_backed", {}).get("heldout_cache", {})
+            for name, value in (("expected", state["metadata"]), ("actual", metadata))},
+        compatibility_policy="Only held-out raw stat digests and cache path; identical verified processed payload, all other metadata exact. Original SSL training identity is never waived.")
+
+
+def initialize_full_classifier(model, config, data, metadata, report_dir=None):
     state, proof = load_asl_source(config.initial_checkpoint, config.initial_checkpoint_sha256, config.initial_checkpoint_epoch)
     old, current = proof["source_config"], asdict(config)
     allowed = set(RECIPE) | {"output_root", "initial_checkpoint", "initial_checkpoint_mode",
@@ -156,9 +215,12 @@ def initialize_full_classifier(model, config, data, metadata):
     expected = {key: value for key, value in old.items() if key not in allowed}
     if not checkpoint_config_matches(expected, current):
         raise ValueError("ASL full-classifier initialization changed an unapproved source configuration field")
-    differences = field_differences(state["metadata"], metadata)
-    if differences or state["class_names"] != data.class_names:
-        raise ValueError(f"ASL classifier class/preprocessing/split provenance mismatch: {[d['field'] for d in differences]}")
+    report = classifier_metadata_report(state, data, metadata)
+    if report_dir is not None:
+        from .utils import write_json
+        write_json(Path(report_dir) / "asl_classifier_provenance_comparison.json", report)
+    if report["blocking_mismatch_count"]:
+        raise ValueError(f"ASL classifier class/preprocessing/split provenance mismatch: {[d['field'] for d in report['mismatches'] if not d['accepted']]}; compatibility_checks={report['compatibility_checks']}")
     targets, weights = model.state_dict(), state["model_state_dict"]
     if set(targets) != set(weights) or any(targets[key].shape != weights[key].shape or
             targets[key].dtype != weights[key].dtype for key in targets):
@@ -166,7 +228,8 @@ def initialize_full_classifier(model, config, data, metadata):
     model.load_state_dict(state["model_state_dict"], strict=True)
     if not all(p.requires_grad for p in model.parameters()):
         raise ValueError("ASL stage must fine-tune all classifier parameters")
-    proof.update(initialization="verified_full_classifier_all_weights", transferred_parameter_names=sorted(state["model_state_dict"]),
+    proof.update(initialization="verified_full_classifier_all_weights", provenance_comparison=report,
+        transferred_parameter_names=sorted(state["model_state_dict"]),
         restored_states=["all_model_weights_including_pooling_and_head"],
         reset_states=["AdamW", "cosine_scheduler", "scaler", "RNG", "history", "best_score", "early_stopping"],
         changed_settings={key: dict(source=old.get(key), current=asdict(config).get(key)) for key in sorted(allowed)},

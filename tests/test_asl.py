@@ -228,3 +228,97 @@ def test_worker_runs_only_two_asl_tasks_with_one_immutable_cache_hash(source, tm
         out=Path(result["completed"][f"asl_{task}"]["output_dir"])
         assert pd.read_csv(out/"history.csv").epoch.tolist()==[1,2,3,4,5]
         assert len(pd.read_csv(out/"threshold_comparison.csv"))==4
+
+def relocated_data(classified):
+    """Fresh load after filesystem-only changes; synthetic waveform bytes unchanged."""
+    from src.experiments import diagnostic_limits
+    path, pin, epoch, cfg, old_data, old_metadata, state = classified
+    ecg_id = old_data.provenance['ssl_cache_backed']['heldout_record_ids'][0]
+    name = old_data.metadata.loc[ecg_id, 'filename_lr']
+    header = Path(cfg.data.data_dir) / f'{name}.hea'
+    header.parent.mkdir(parents=True, exist_ok=True)
+    header.write_text('Synthetic stat change; waveform reader remains identical')
+    data = load_cache_backed_data(cfg, reader=synthetic_reader)
+    metadata = dict(task=cfg.task, normalizer=data.normalizer.state_dict(), provenance=data.provenance,
+                    splits={k:list(map(int,v)) for k,v in data.splits.items()})
+    return data, metadata
+
+
+def test_environmental_stats_and_cache_key_relocation_require_identical_payload(classified, tmp_path, monkeypatch):
+    import src.cache as cache
+    import src.ssl_cache_backed as backed
+    path, pin, epoch, cfg, old_data, old_metadata, state = classified
+    data, metadata = relocated_data(classified)
+    # Compatibility must consume existing verification, never rehash a waveform cache.
+    original = cache.digest_file
+    def no_waveform_rehash(p):
+        assert Path(p).suffix != '.npy'
+        return original(p)
+    monkeypatch.setattr(cache, 'digest_file', no_waveform_rehash)
+    monkeypatch.setattr(backed, 'digest_file', no_waveform_rehash)
+    proof = initialize_full_classifier(ClassifierDouble(len(data.class_names)), cfg, data, metadata, tmp_path)
+    report = proof['provenance_comparison']
+    assert report['status'] == 'passed_verified_heldout_cache_relocation'
+    assert len(report['mismatches']) == 3 and all(d['accepted'] for d in report['mismatches'])
+    assert all(report['compatibility_checks'].values())
+    assert metadata['provenance']['ssl_cache_backed']['heldout_cache']['payload_sha256'] == state['metadata']['provenance']['ssl_cache_backed']['heldout_cache']['payload_sha256']
+    assert (tmp_path / 'asl_classifier_provenance_comparison.json').is_file()
+    assert digest_file(path) == pin
+
+
+@pytest.mark.parametrize('damage', ['payload', 'normalizer', 'splits', 'version', 'preprocessing',
+    'training_identity', 'class_order', 'missing_receipt', 'missing_payload', 'inconsistent_stats', 'cache_modified'])
+def test_relocation_never_waives_substantive_mismatches(classified, monkeypatch, tmp_path, damage):
+    path, pin, epoch, cfg, old_data, old_metadata, state = classified
+    data, metadata = relocated_data(classified)
+    p = metadata['provenance']; b = p['ssl_cache_backed']
+    if damage == 'payload': b['heldout_cache']['payload_sha256'] = '0'*64
+    elif damage == 'normalizer': metadata['normalizer']['std'][0][0] *= 2
+    elif damage == 'splits': metadata['splits']['train'] = metadata['splits']['train'][:-1]
+    elif damage == 'version': p['declared_dataset_version'] = 'different'
+    elif damage == 'preprocessing': p['preprocessing_identity']['apply_filter'] = False
+    elif damage == 'training_identity': b['original_training_preprocessing_identity']['raw_file_stats_sha256'] = '0'*64
+    elif damage == 'class_order': data.labels.columns = list(reversed(data.class_names))
+    elif damage == 'missing_receipt': del data._verified_heldout_cache
+    elif damage == 'missing_payload': del b['heldout_cache']['payload_sha256']
+    elif damage == 'inconsistent_stats':
+        from copy import deepcopy
+        b['heldout_preprocessing_identity'] = deepcopy(b['heldout_preprocessing_identity'])
+        b['heldout_preprocessing_identity']['raw_file_stats_sha256'] = '1'*64
+    else:
+        with open(b['heldout_cache']['path'], 'ab') as f: f.write(b'changed')
+    target = ClassifierDouble(len(data.class_names))
+    monkeypatch.setattr(target, 'load_state_dict', lambda *a,**k:pytest.fail('rejected data reached weight transfer'))
+    with pytest.raises(ValueError, match='provenance mismatch'):
+        initialize_full_classifier(target, cfg, data, metadata, tmp_path)
+    report = json.loads((tmp_path / 'asl_classifier_provenance_comparison.json').read_text())
+    assert report['status'] == 'rejected' and report['blocking_mismatch_count'] > 0
+    assert not any(d['accepted'] for d in report['mismatches'])
+
+def test_path_only_relocation_is_content_bound(classified):
+    from copy import deepcopy
+    from src.asl_stage import classifier_metadata_report
+    path, pin, epoch, cfg, data, metadata, state = classified
+    saved = deepcopy(state)
+    saved['metadata']['provenance']['ssl_cache_backed']['heldout_cache']['path'] = '/old/session/signals.npy'
+    report = classifier_metadata_report(saved, data, metadata)
+    assert report['status'] == 'passed_verified_heldout_cache_relocation'
+    assert [d['field'] for d in report['mismatches']] == ['provenance.ssl_cache_backed.heldout_cache.path']
+
+
+def test_real_processed_signal_change_rejected_even_with_identical_reader_signature(classified, tmp_path):
+    path, pin, epoch, cfg, old_data, old_metadata, state = classified
+    relocated_data(classified)  # change stat-based key so a new held-out cache is built
+    # Force another cache miss while preserving the implementation identity.
+    ecg_id = old_data.provenance['ssl_cache_backed']['heldout_record_ids'][0]
+    header = Path(cfg.data.data_dir) / f"{old_data.metadata.loc[ecg_id, 'filename_lr']}.hea"
+    header.write_text('Different waveform data, not just timestamps')
+    def changed_reader(path, sampling_rate):
+        return synthetic_reader(path, sampling_rate) * 2
+    changed_reader.__module__ = synthetic_reader.__module__
+    changed_reader.__qualname__ = synthetic_reader.__qualname__
+    data = load_cache_backed_data(cfg, reader=changed_reader)
+    metadata = dict(task=cfg.task, normalizer=data.normalizer.state_dict(), provenance=data.provenance,
+                    splits={k:list(map(int,v)) for k,v in data.splits.items()})
+    with pytest.raises(ValueError, match='heldout_cache.payload_sha256'):
+        initialize_full_classifier(ClassifierDouble(len(data.class_names)), cfg, data, metadata, tmp_path)

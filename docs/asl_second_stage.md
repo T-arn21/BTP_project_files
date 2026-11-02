@@ -183,3 +183,82 @@ not an executed ASL benchmark. ASL may improve or worsen metrics; evaluate the n
 validation-selected checkpoints against preserved baselines. Library/input
 provenance differences still fail closed. No real GPU smoke or GPU training was
 launched while preparing this implementation.
+
+## November 2 ASL provenance repair and rerun
+
+Session `20261102T164449Z_fb365bf6` stopped before epoch 1 because commit
+7716f19 used recursive exact equality for the entire full-classifier metadata.
+`cache.preprocessing_identity()` hashes each held-out `.hea`/`.dat` relative
+name, size **and `st_mtime_ns`** into `raw_file_stats_sha256`; it is not a
+waveform content checksum. `prepare_cache_backed_data()` stores that identity
+twice (top-level and heldout_preprocessing_identity). `ensure_signal_cache()`
+includes the complete identity in its cache key, so a timestamp change also
+changes the resulting cache directory. The three reported differences can
+therefore have one environmental cause. They do not themselves establish that
+only timestamps changed, since file sizes also participate.
+
+Read-only inspection of both original pinned best.pth files established:
+
+- Held-out raw-stat digest: `b702c9e88e9c769efadb046e54242356e34a47024f78521d7c612a1c4d5f2eff`.
+- Held-out cache: `/kaggle/working/btp_outputs/cache/signals_3dc5daab9a69e1210fdc127d/signals.npy`.
+- Processed held-out payload SHA256: `0c2c7eef0b23c55d456a94a48499f12c20b5bcd2a937359c9b7eb625a1dc0f42`, with 4,319 held-out record IDs.
+
+The failed session was not available locally during this repair. Its reported
+exhaustive three-field difference list is consistent with the payload hash
+matching; its current data_manifest.json is needed to confirm the actual hash,
+path and stat digest independently. Per-file old/new sizes and timestamps would
+be needed to attribute the raw-stat change specifically to timestamps. No
+claim of raw-file byte equivalence follows from a stat digest.
+
+The new rule is confined to ASL full-classifier initialization and exactly:
+
+1. `provenance.preprocessing_identity.raw_file_stats_sha256`
+2. `provenance.ssl_cache_backed.heldout_preprocessing_identity.raw_file_stats_sha256`
+3. `provenance.ssl_cache_backed.heldout_cache.path`
+
+Those differences are accepted together or separately ONLY if the processed
+held-out cache hash matches the hash inside the SHA-pinned classifier. The
+current loader must have verified/built that cache in this execution, with the
+same identity, complete ordered held-out IDs, dataset cache bindings and no
+file-stat change since verification. Both duplicate identities must agree.
+Missing payload proof or an altered payload rejects. The path exception does
+not require the old ephemeral working path to exist, and does not apply to the
+original training cache, dataset root or arbitrary metadata paths.
+
+All other metadata must match exactly, including dataset version, metadata CSV
+hashes, preprocessing source and dependency versions, filter/shape/reader
+parameters, original normalizer and fit IDs, training cache payload/manifest,
+class order and patient-disjoint split IDs. Source model/config/hash validation
+is unchanged. PTB-XL release_verified remains False: a matching declared version
+alone is not treated as immutable dataset proof. The authenticated original
+training cache plus matching verified processed held-out payload provide signal
+identity; current raw files need not be claimed byte-identical.
+
+The verification receipt is runtime-only; a saved receipt/report cannot authorize
+compatibility. The rule consumes ensure_signal_cache's existing verification,
+without any extra full-cache SHA256 pass, training-waveform reconstruction or
+expensive equivalence audit. Existing one-per-execution original-cache
+verification and read-only scoped sharing are unchanged. Raw digests and all
+original artifacts remain preserved. Exact resume and other validators retain
+their existing policies.
+
+For the rerun, refresh `05_btp_kaggle_final.ipynb` from this branch, attach the
+same three inputs listed above and compatible wheels if available, select the
+same GPU, enable Internet and the GITHUB_TOKEN secret, and use Run All. Retain
+**all** configuration values in the Exact notebook configuration section:
+RUN_ASL_SUPERCLASS=True, RUN_ASL_SUBCLASS=True, all unrelated training/smoke/
+diagnostic flags False; five epochs, batch2, FP32, LR1e-5/min1e-6 and unchanged
+ASL gamma/clip settings. Both source checkpoint paths, epochs and SHA256 pins
+remain unchanged. The synchronized checkout should show the repair commit
+before the worker starts. No manual provenance waiver or extra audit is needed.
+
+Each new task folder saves `asl_classifier_provenance_comparison.json` on
+success or rejection, with expected/actual mismatches, accepted flags, guard
+results and both held-out payload hashes. Success is `passed_exact` or
+`passed_verified_heldout_cache_relocation`; the latter has zero blocking
+mismatches. Any other mismatch or missing content proof stops before epoch 1.
+The success report is also embedded in full_classifier_initialization.json.
+If a rerun rejects, retain that JSON plus data_manifest.json and
+checkpoint_failure.json from the failed task folder; no new GPU experiment is
+needed to interpret them. Output roots and the two-task duration estimate
+above are unchanged. No GPU training was executed while preparing this repair.

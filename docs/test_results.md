@@ -1,3 +1,36 @@
+# ASL held-out provenance compatibility repair - 2026-11-02
+
+Full CPU suite: **270 passed, 6 skipped, 8 existing scheduler warnings in
+119.93s**. Command (local Git fixture permissions enabled):
+
+```powershell
+$env:MPLBACKEND = 'Agg'
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-asl-provenance-release --tb=short
+```
+
+The repair is limited to the ASL classifier metadata comparison: two held-out
+stat digests and the held-out cache location may differ only with identical
+processed payload SHA256 verified during the current data load. Original SSL
+training identity, normalization, class order, splits, metadata, versions and
+all substantive preprocessing fields remain strict. No additional waveform
+hash pass is performed by initialization. Saved reports cannot authorize reuse.
+
+New CPU tests cover both five- and 23-class classifiers: accepted equivalent
+signals after filesystem signature/cache-key changes, path-only relocation,
+rejected real waveform changes despite the same reader signature, changed
+normalization/splits/version/preprocessing/training identity/class order,
+missing payload/receipt, inconsistent duplicate identities and changed cache
+files. Accepted and rejected comparison reports retain exact expected/actual
+values; original classifier hashes remain unchanged. Existing CPU stage/worker
+integration, cache authentication, resume and supervised tests passed.
+
+Notebook schema and every code cell's syntax passed; executable cell contents,
+checkpoint paths/pins, both ASL flags and recipe were verified unchanged from
+7716f19. The first restricted test invocation had two local Git fixture setup
+errors; the final full run above passed with appropriate local Git access.
+Six CUDA-dependent tests were skipped. No Kaggle/GPU run was launched.
+
 # ASL full-classifier second stage - 2026-10-31
 
 Implemented explicit loss_type=bce/asl, stable FP32 ASL with gamma_pos0,

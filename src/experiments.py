@@ -122,7 +122,7 @@ def run_experiment(model_name=None, task=None, epochs=None, batch_size=None,
                     try:
                         if cfg.initial_checkpoint_mode == "ssl_full_classifier":
                             from .asl_stage import initialize_full_classifier
-                            verification = initialize_full_classifier(model, cfg, data, metadata)
+                            verification = initialize_full_classifier(model, cfg, data, metadata, report_dir=out)
                             initial = {"epoch": verification["epoch"]}
                             write_json(out / "full_classifier_initialization.json", verification)
                         else:
