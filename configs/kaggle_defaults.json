@@ -113,15 +113,15 @@
   "SSL_FINETUNE_DATA_MODE": "ssl_cache_backed",
   "RUN_SSL_FINETUNE_RESUME": false,
   "SSL_FINETUNE_RESUME_SESSION_ID": "20261029T180106Z_e154ce34",
-  "SSL_FINETUNE_RESUME_ARTIFACT_ROOT": "/kaggle/input/checkpoint_2",
+  "SSL_FINETUNE_RESUME_ARTIFACT_ROOT": "/kaggle/input/datasets/arnavvt/checkpoint-2",
   "SSL_FINETUNE_RESUME_RUN_DIRS": {
-    "superclass": "/kaggle/input/checkpoint_2/btp_outputs/sessions/20261029T180106Z_e154ce34/ssl_finetuning/full/benchmark/mamba_superclass_20261029T180304Z_bb3fcff5",
-    "subclass": "/kaggle/input/checkpoint_2/btp_outputs/sessions/20261029T180106Z_e154ce34/ssl_finetuning/full/benchmark/mamba_subclass_20261029T200603Z_991377cb"
+    "superclass": "/kaggle/input/datasets/arnavvt/checkpoint-2/btp_outputs/sessions/20261029T180106Z_e154ce34/ssl_finetuning/full/benchmark/mamba_superclass_20261029T180304Z_bb3fcff5",
+    "subclass": "/kaggle/input/datasets/arnavvt/checkpoint-2/btp_outputs/sessions/20261029T180106Z_e154ce34/ssl_finetuning/full/benchmark/mamba_subclass_20261029T200603Z_991377cb"
   },
   "SSL_FINETUNE_RESUME_TO_EPOCHS": 10,
   "SSL_FINETUNE_RESUME_SCHEDULER_POLICY": "hold_completed_lr",
-  "RUN_ASL_SUPERCLASS": true,
-  "RUN_ASL_SUBCLASS": true,
+  "RUN_ASL_SUPERCLASS": false,
+  "RUN_ASL_SUBCLASS": false,
   "ASL_SOURCE_SESSION_ID": "20261030T060028Z_a420e362",
   "ASL_SOURCE_ROOT": "/kaggle/input/datasets/arnavvt/checkpoint-2",
   "ASL_BEST_CHECKPOINTS": {

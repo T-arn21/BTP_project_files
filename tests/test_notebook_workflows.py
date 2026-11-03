@@ -34,6 +34,28 @@ def test_all_notebooks_validate_and_safe_defaults_preserve_archive():
     module.validate()
 
 
+def test_unified_default_execution_is_inactive_and_resume_mounts_are_consistent(monkeypatch):
+    book=nbformat.read(ROOT/'05_btp_kaggle_final.ipynb',as_version=4)
+    ns={}
+    exec(book.cells[1].source,ns)
+    assert all(value is False for key,value in ns['SETTINGS'].items() if key.startswith('RUN_'))
+    assert ns['ACTIVE'] is False and ns['NEED_GPU'] is False
+    assert ns['DIAGNOSTIC_MODE'] is False and ns['SSL_FINETUNE_PROVENANCE_ONLY'] is False
+    prefix='/kaggle/input/datasets/arnavvt/checkpoint-2'
+    assert ns['SSL_FINETUNE_RESUME_ARTIFACT_ROOT']==prefix
+    for task,path in ns['SSL_FINETUNE_RESUME_RUN_DIRS'].items():
+        assert path.startswith(prefix+'/btp_outputs/sessions/20261029T180106Z_e154ce34/')
+        assert Path(path).name.startswith('mamba_'+task+'_')
+    extension=nbformat.read(ROOT/NAMES[3],as_version=4)
+    stage={};exec(next(c.source for c in extension.cells if 'stage-config' in c.metadata.get('tags',[])),stage)
+    assert stage['EXECUTE'] is False
+    assert stage['OVERRIDES']['SSL_FINETUNE_RESUME_RUN_DIRS']==ns['SSL_FINETUNE_RESUME_RUN_DIRS']
+    monkeypatch.setattr(subprocess,'Popen',lambda *a,**kw:pytest.fail('inactive notebook launched a subprocess'))
+    for cell in book.cells[2:]:
+        if cell.cell_type=='code':exec(cell.source,ns)
+    assert ns['EXECUTION_SUMMARY']['status']=='skipped'
+
+
 @pytest.mark.parametrize('profile',PROFILES)
 @pytest.mark.parametrize('mode',['smoke','full'])
 def test_profiles_select_only_documented_worker_modes(profile,mode):

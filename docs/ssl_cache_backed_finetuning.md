@@ -75,7 +75,8 @@ values are inside the pinned encoder. All source files remain read-only.
 
 ## Exact first-cell smoke configuration
 
-The updated `05_btp_kaggle_final.ipynb` already selects:
+All unified-notebook execution flags default to False. To opt into this smoke
+workflow, manually set the following first-cell configuration:
 
 ```python
 RUN_ASL_SUPERCLASS = RUN_ASL_SUBCLASS = False

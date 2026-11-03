@@ -1,3 +1,32 @@
+# Final safe-default and checkpoint-mount cleanup - 2026-11-03
+
+All unified notebook training/smoke/resume/diagnostic controls now default to
+False, including both ASL task flags. ACTIVE and NEED_GPU resolve False; default
+Run All returns skipped without subprocesses, secrets, network or GPU work.
+All six stage notebooks retain EXECUTE=False. Explicit opt-in profiles and ASL
+worker execution remain covered by CPU tests.
+
+Resume input references use the verified
+`/kaggle/input/datasets/arnavvt/checkpoint-2/` mount consistently in the unified
+notebook, settings snapshot, extended-stage notebook/builder and guides. Session
+IDs, filenames, SHA256 pins and all scientific settings are unchanged. No src/
+implementation, provenance check, architecture or execution logic changed.
+
+Validation: all seven notebook schemas/Python syntax and safe default executions,
+all local documentation links, five unchanged archived notebook hashes, and
+static checkpoint-path consistency passed. Actual Kaggle mount availability is
+checked by the existing runtime preflight, not claimed verified locally.
+
+```powershell
+python scripts/validate_notebooks.py
+$env:MPLBACKEND = 'Agg'
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest tests/test_notebook_workflows.py tests/test_asl.py tests/test_task3.py tests/test_resume_extension.py -q --basetemp=outputs/pytest-final-defaults --tb=short
+```
+
+**132 passed, 3 existing scheduler warnings in 55.75s.** No GPU/Kaggle training
+was run. Historical experiment results and archived notebook bytes are unchanged.
+
 # Project organization validation - 2026-11-03
 
 Branch base: merged main dc59970. This change reorganizes experiment entry
@@ -568,7 +597,7 @@ See checkpoint_continuation.md for precise settings, paths and failure policy.
 
 ---
 
-# Numerical stability release — 2026-10-28
+# Numerical stability release â€” 2026-10-28
 
 Initial checkout was clean on dev/unified-ecg-pipeline; origin was fetched.
 The user's prior real Kaggle run reportedly passed sync/install/audit, both
@@ -616,7 +645,7 @@ checkpoint/wheel reuse, and the verified-versus-suspected cause distinction.
 
 ---
 
-# Unattended Kaggle entry-point release — 2026-10-28
+# Unattended Kaggle entry-point release â€” 2026-10-28
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
@@ -680,7 +709,7 @@ completed/skipped/failed experiments and results under
 
 ---
 
-# Task 3 release checks — 2026-10-28
+# Task 3 release checks â€” 2026-10-28
 
 Repository: existing dev/unified-ecg-pipeline. Remote fetched before changes.
 The initial working tree included the user's one-line encoder fix and new
@@ -761,7 +790,7 @@ See README and kaggle_execution.md for the Run All controls and resume procedure
 
 ---
 
-# Executed checks — latest 2026-10-27
+# Executed checks â€” latest 2026-10-27
 
 ## Kaggle preflight preparation milestone
 
@@ -812,7 +841,7 @@ full-training normalization, completing superclass/subclass training and test
 evaluation, validating GPU memory use, and inspecting/exporting those real-run
 artifacts. See `kaggle_execution.md` and the notebook's explicit run controls.
 
-## Baseline milestone — 2026-10-26
+## Baseline milestone â€” 2026-10-26
 
 Final automated command, run from `D:\Coding\BTP\BTP_project_files`:
 

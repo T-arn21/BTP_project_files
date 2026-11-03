@@ -48,8 +48,8 @@ unified configuration snapshot. Resolved settings and source commit are exported
 
 [05_btp_kaggle_final.ipynb](05_btp_kaggle_final.ipynb) remains the fully configurable
 unified entry point for established workflows, recovery and provenance-only
-investigations. Its existing ASL-enabled defaults are retained, so review its flags
-before Run All. It has different defaults from the new execution-off notebooks.
+investigations. All training, smoke, resume and diagnostic flags now default to False.
+Manually select the desired experiment before Run All; the inactive default does no GPU work.
 See [unified execution](docs/kaggle_execution.md).
 
 Stage06 needs no GPU or CUDA extensions. It recalculates metrics from saved

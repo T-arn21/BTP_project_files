@@ -3,8 +3,9 @@
 [05_btp_kaggle_final.ipynb](../05_btp_kaggle_final.ipynb) remains the established
 fully configurable Run All entry point. For a single explained stage, prefer the
 [six experiment notebooks](../README.md) and [handoff guide](reproduction.md).
-The unified notebook retains its ASL-enabled defaults; the six new notebooks
-start with execution disabled. Do not confuse these two interfaces.
+The unified notebook defaults all training, smoke, resume and diagnostic flags
+to False; the six new notebooks default EXECUTE=False. Each interface requires
+explicit manual opt-in before it performs work.
 
 ## Setup and source
 

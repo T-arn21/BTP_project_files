@@ -210,7 +210,8 @@ def test_worker_runs_only_two_asl_tasks_with_one_immutable_cache_hash(source, tm
     settings=namespace["SETTINGS"]
     session=tmp_path/"session";session.mkdir()
     settings.update(SESSION_DIR=str(session),CHECKOUT_DIR=str(root),DATASET_ROOT=source[1].data.data_dir,
-        ASL_BEST_CHECKPOINTS=paths,ASL_CHECKPOINT_SHA256=pins)
+        ASL_BEST_CHECKPOINTS=paths,ASL_CHECKPOINT_SHA256=pins,
+        RUN_ASL_SUPERCLASS=True,RUN_ASL_SUBCLASS=True)  # explicit opt-in, never rely on notebook defaults
     monkeypatch.setattr(kaggle,"require_cuda",lambda:None)  # CPU routing test, no CUDA execution
     monkeypatch.setattr(kaggle,"find_ptbxl_root",lambda *a:Path(source[1].data.data_dir))
     monkeypatch.setattr(data_module,"read_waveform",synthetic_reader)

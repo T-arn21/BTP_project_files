@@ -122,8 +122,8 @@ hashes within a normal experiment on immutable Kaggle inputs.
 
 ## Exact notebook configuration
 
-The updated first cell is preconfigured for these two explicit task flags; no
-GPU work occurs until the user starts Run All / Save & Run All:
+All unified-notebook execution flags default to False. To opt into both ASL
+tasks, manually set the following configuration before Run All / Save & Run All:
 
 ```python
 RUN_ASL_SUPERCLASS = True
@@ -146,9 +146,9 @@ ASL_STAGE_SETTINGS = dict(
 ```
 
 Paths/hashes above are already pinned in the cell. Source model/data settings
-are inherited, not replaced by unrelated legacy smoke/full settings. Set both
-RUN_ASL flags False to opt out. Other training/diagnostic flags cannot be mixed
-with this stage. Select a GPU, enable Internet and GITHUB_TOKEN, attach inputs,
+are inherited, not replaced by unrelated legacy smoke/full settings. Both RUN_ASL
+flags default to False; enable them explicitly to opt in. Other training/diagnostic
+flags cannot be mixed with this stage. Select a GPU, enable Internet and GITHUB_TOKEN, attach inputs,
 and review the cell before Run All. Setup may probe CUDA/Mamba functionality;
 no diagnostic ECG experiment or separate GPU smoke run is launched.
 

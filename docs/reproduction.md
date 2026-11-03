@@ -3,7 +3,7 @@
 The six root experiment notebooks are execution entry points for shared `src/`.
 No historical experiment is reproduced merely by importing them. No expensive
 run is enabled by default. The retained unified notebook is a separate advanced
-entry point with its prior ASL-enabled defaults.
+entry point with all execution flags disabled by default.
 
 ## Stage controls
 
@@ -55,7 +55,7 @@ checkpoint or data provenance checks. Stage06 has its own explicit input mapping
 Historical defaults in03 use `arnavtiku/checkpoint` and encoder SHA
 `8d99bd77ad9c65e15519cc744c57a1e683e0accd34fa8724c6a5382cdf1e38d4`.
 The authenticated original training cache covers17,441 ECGs. The historical04
-source is `/kaggle/input/checkpoint_2/` session20261029T180106Z_e154ce34.
+source is `/kaggle/input/datasets/arnavvt/checkpoint-2/` session20261029T180106Z_e154ce34.
 The historical05/06 source is `arnavvt/checkpoint-2`,
 session20261030T060028Z_a420e362: superclass best7, subclass best14. Exact paths
 and classifier pins are in the notebook and [ASL guide](asl_second_stage.md).
