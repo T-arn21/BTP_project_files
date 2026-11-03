@@ -9,7 +9,7 @@ cell inventory for executable definitions and stored output types/counts.
 
 ## Preprocessing reference
 
-`preprocessing-reusable-data-pipeline.ipynb`, code cells 3–46:
+`archive/notebooks/preprocessing-reusable-data-pipeline.ipynb`, code cells 3–46:
 
 - Installs wfdb and checks a broad scientific stack (including torchvision,
   plotly, torchmetrics and optional psutil). Configuration uses 100 Hz, 1000
@@ -40,7 +40,7 @@ Both tasks use a single deterministic waveform path.
 
 ## Training reference
 
-`ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb`, cells 3–32:
+`archive/notebooks/ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb`, cells 3–32:
 
 - Explicit CUDA package setup (`mamba-ssm`, `causal-conv1d`), TensorBoard,
   torchmetrics, AdamW, AMP, cosine/linear schedules. It executes preprocessing
@@ -69,7 +69,7 @@ by the optional real-CUDA test; actual old checkpoint files are absent.
 
 ## Evaluation reference
 
-`ptb-xl-ecg-supervised-mamba-evaluation-version2.ipynb`, cells 3–55:
+`archive/notebooks/ptb-xl-ecg-supervised-mamba-evaluation-version2.ipynb`, cells 3–55:
 
 - Loads frozen config/checkpoints, reconstructs the architecture and adds a
   return_embedding option. Executes preprocessing notebook again, re-fitting

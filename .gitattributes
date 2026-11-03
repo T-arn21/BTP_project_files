@@ -1,0 +1,2 @@
+# Preserve the exact archived Git blobs across Windows/Linux checkouts.
+archive/notebooks/*.ipynb -text

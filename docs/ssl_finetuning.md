@@ -44,7 +44,7 @@ The authenticated encoder itself contains the required source split provenance.
 Initial remote access returned HTTP 403. Subsequently supplied local artifacts
 were audited read-only: the epoch-20 encoder SHA256, finite weights and completion
 metadata are verified, and their hashes match the failed run's recorded source
-verification. See [the artifact audit](ssl_provenance_artifact_audit.md) for the
+verification. See [the artifact audit](history/ssl_provenance_artifact_audit.md) for the
 raw-file-stat rejection; live provenance checks remain mandatory. This is saved
 execution evidence, not 20 epochs rerun locally.
 

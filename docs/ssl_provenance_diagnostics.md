@@ -3,7 +3,7 @@
 Reported session: `20261029T052515Z_51f75e15`, superclass smoke, before training.
 The artifacts were initially unavailable, motivating the diagnostic release.
 They have since been supplied and inspected read-only: see the
-[actual artifact audit](ssl_provenance_artifact_audit.md). The root/version,
+[actual artifact audit](history/ssl_provenance_artifact_audit.md). The root/version,
 metadata/code hashes, environment and normalization match exactly. The rejected
 field is deduced to be the raw file-stat signature; the actual historical
 training-only digest was not persisted. This is not a mount-alias mismatch.

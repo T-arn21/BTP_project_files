@@ -1,6 +1,6 @@
 # Task 3: Kaggle attempt evidence and bottleneck analysis
 
-`ecg-xl-btp.ipynb` is preserved as supplied. Its 40 cells contain the working
+`archive/notebooks/ecg-xl-btp.ipynb` is preserved as supplied. Its 40 cells contain the working
 source-copy head patch, source-build commands, wheel preservation, isolated
 CUDA probe, main smoke cells, and temporary 1000-record normalization patch.
 The supplied file has **zero saved outputs**. It therefore documents code and

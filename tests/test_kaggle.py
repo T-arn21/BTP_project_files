@@ -76,7 +76,7 @@ def test_notebook_safe_default_execution(monkeypatch):
     monkeypatch.chdir(root)
     monkeypatch.setenv("BTP_REPO_DIR", str(root))
     monkeypatch.delenv("PTBXL_DATA_DIR", raising=False)
-    book = nbformat.read(root / "04_btp_experiments.ipynb", as_version=4)
+    book = nbformat.read(root / "archive/notebooks/04_btp_experiments.ipynb", as_version=4)
     namespace = {}
     for i, cell in enumerate(book.cells):
         if cell.cell_type == "code":

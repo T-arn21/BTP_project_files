@@ -276,7 +276,7 @@ def test_real_mamba_forward_and_reference_compatibility(width):
         encoder.load_state_dict({k: v for k, v in model.state_dict().items() if not k.startswith("head.")})
         torch.testing.assert_close(model.forward_features(x), encoder(x))
         # Instantiate untouched original executable architecture, not a mock kernel.
-        n = json.loads((Path(__file__).parents[1] / "ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb").read_text(encoding="utf-8"))
+        n = json.loads((Path(__file__).parents[1] / "archive/notebooks/ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb").read_text(encoding="utf-8"))
         from mamba_ssm import Mamba
         namespace = dict(nn=nn, torch=torch, Mamba=Mamba)
         exec("".join(n["cells"][17]["source"]), namespace)
@@ -287,7 +287,7 @@ def test_real_mamba_forward_and_reference_compatibility(width):
 
 def test_notebook_validity():
     import nbformat
-    path = Path(__file__).parents[1] / "04_btp_experiments.ipynb"
+    path = Path(__file__).parents[1] / "archive/notebooks/04_btp_experiments.ipynb"
     notebook = nbformat.read(path, as_version=4)
     nbformat.validate(notebook)
     for cell in notebook.cells:

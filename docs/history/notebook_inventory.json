@@ -1,6 +1,6 @@
 [
   {
-    "filename": "preprocessing-reusable-data-pipeline.ipynb",
+    "filename": "archive/notebooks/preprocessing-reusable-data-pipeline.ipynb",
     "sha256": "bd2d26ac718efe8abbb4fe6e348df6d5888d8f002b1644af8f7c892a7e62109e",
     "cells": 48,
     "code_cells": [
@@ -879,7 +879,7 @@
     }
   },
   {
-    "filename": "ptb-xl-ecg-supervised-mamba-evaluation-version2.ipynb",
+    "filename": "archive/notebooks/ptb-xl-ecg-supervised-mamba-evaluation-version2.ipynb",
     "sha256": "37a3b16a8ed5a7eb446d6029d2ae51da9539451eb71d44f38d005b885450789f",
     "cells": 57,
     "code_cells": [
@@ -2267,7 +2267,7 @@
     }
   },
   {
-    "filename": "ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb",
+    "filename": "archive/notebooks/ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb",
     "sha256": "4cbe718289a585c47f795bb8c37eddb8f66ffcb21e6fbbc7604d8185cd91e1e2",
     "cells": 34,
     "code_cells": [

@@ -1,3 +1,43 @@
+# Project organization validation - 2026-11-03
+
+Branch base: merged main dc59970. This change reorganizes experiment entry
+points and documentation; it does not rerun GPU experiments or alter existing
+models, preprocessing, loss/training implementations, provenance or resume rules.
+
+- Seven maintained notebooks pass nbformat schema and Python code-cell syntax
+  checks. All six new notebooks execute safely with EXECUTE=False; no network,
+  installation, token retrieval or training occurs. All embedded launchers match
+  src/bootstrap.py. Notebook regeneration produces identical bytes.
+- Five archived notebooks match their original merged-main Git blobs exactly.
+  archive/notebooks/manifest.json and .gitattributes preserve/check those bytes.
+  Archive-dependent architecture/safe-execution tests use the new paths.
+- Stage-selection tests cover all supported smoke/full modes, rejected competing
+  modes, preservation of unified scientific settings and resolved settings saved
+  after source synchronization. Enabled entry routing uses explicit CPU adapters;
+  existing worker tests exercise real synthetic-data training/export paths.
+- Notebook06 also runs end-to-end in a fresh CPU process. Read-only re-analysis
+  of both real downloaded epoch15 prediction exports reproduced their saved
+  macro AUROC/AUPRC/F1 exactly: superclass .9155520084/.8053323399/.7536372362;
+  subclass .8524728723/.4375051363/.4323777350. This is prediction re-analysis,
+  not inference or raw-data/GPU reproduction. Reviews were saved separately at
+  outputs/organization_reviews/20261103T080910Z_e946fb68/ (ignored local outputs).
+  The historical subclass test/test_predictions.csv filename is supported and
+  recorded explicitly; ambiguous duplicate prediction filenames reject.
+- All local Markdown links in README/docs/archive resolve. Existing histories,
+  artifact pins, detailed recovery policies and source experiment files remain.
+
+```powershell
+python scripts/validate_notebooks.py
+$env:MPLBACKEND = 'Agg'
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-organization-final --tb=short
+```
+
+**305 passed, 6 skipped, 8 existing scheduler warnings in 220.37s.** Local Git
+fixture permissions were enabled. Six conditional real-CUDA tests skipped on
+this CPU host. An initial cross-platform relative-path serialization assertion
+was fixed; this final run passed. No GPU or Kaggle execution was launched.
+
 # ASL held-out provenance compatibility repair - 2026-11-02
 
 Full CPU suite: **270 passed, 6 skipped, 8 existing scheduler warnings in
@@ -644,7 +684,7 @@ completed/skipped/failed experiments and results under
 
 Repository: existing dev/unified-ecg-pipeline. Remote fetched before changes.
 The initial working tree included the user's one-line encoder fix and new
-`ecg-xl-btp.ipynb`; both are preserved and included in this milestone.
+`archive/notebooks/ecg-xl-btp.ipynb`; both are preserved and included in this milestone.
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
@@ -703,7 +743,7 @@ reads and filters every required record once; its Kaggle wall time is unknown.
 
 Additional checks: compileall, notebook schema/syntax and Git whitespace checks
 pass. The original three reference notebooks are byte-for-byte unchanged.
-`04_btp_experiments.ipynb` has no Git diff (Windows text newline normalization
+`archive/notebooks/04_btp_experiments.ipynb` has no Git diff (Windows text newline normalization
 is accounted for). The user's attempt notebook is preserved as supplied and has
 zero saved outputs, so its reported smoke success is attributed to the user.
 
@@ -817,7 +857,7 @@ SCP mapping fixture. No real patient metadata or waveforms were downloaded.
 
 Additional executed checks:
 
-- Every default executable cell in `04_btp_experiments.ipynb` ran successfully
+- Every default executable cell in `archive/notebooks/04_btp_experiments.ipynb` ran successfully
   in a fresh namespace, without a dataset, package installation or training.
 - `python -m compileall -q src tests` passed.
 - `git diff --check` passed.

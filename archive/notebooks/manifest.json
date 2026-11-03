@@ -1,0 +1,10 @@
+{
+  "base_commit": "dc59970",
+  "sha256": {
+    "04_btp_experiments.ipynb": "aabb52b1143d9ec67ba3b9d690e4d8969c5c4763305af42bd4f7276b46ba8535",
+    "ecg-xl-btp.ipynb": "6fe5eee675e8dbf9d6ded4b71932b3cfd658eac3e7b931fa5fb9f794279bca16",
+    "preprocessing-reusable-data-pipeline.ipynb": "bd2d26ac718efe8abbb4fe6e348df6d5888d8f002b1644af8f7c892a7e62109e",
+    "ptb-xl-ecg-supervised-mamba-evaluation-version2.ipynb": "37a3b16a8ed5a7eb446d6029d2ae51da9539451eb71d44f38d005b885450789f",
+    "ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb": "4cbe718289a585c47f795bb8c37eddb8f66ffcb21e6fbbc7604d8185cd91e1e2"
+  }
+}

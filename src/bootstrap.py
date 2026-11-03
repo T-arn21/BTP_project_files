@@ -192,8 +192,15 @@ def execute_notebook(settings):
     try:
         synchronized = sync_repository(settings["CHECKOUT_DIR"], branch=settings["GIT_BRANCH"],
                                        timeout=settings["GIT_TIMEOUT_SECONDS"])
+        import_root = select_import_root(synchronized["checkout"])
+        if "WORKFLOW_PROFILE" in settings:
+            # Import only stdlib profile selection after secure synchronization;
+            # scientific imports remain in fresh post-install worker processes.
+            profiles = importlib.import_module("src.notebook_workflows")
+            settings = profiles.workflow_settings(settings)
+            config = dict(settings, SESSION_DIR=str(session))
         config["SOURCE_REVISION"] = synchronized["commit"]
-        config["IMPORT_ROOT"] = select_import_root(synchronized["checkout"])
+        config["IMPORT_ROOT"] = import_root
         print(f"Synchronized {synchronized['branch']} @ {synchronized['commit'][:12]}; imports: {config['IMPORT_ROOT']}", flush=True)
         path = session / "execution_config.json"
         path.write_text(json.dumps(config, indent=2), encoding="utf-8")
