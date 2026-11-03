@@ -597,7 +597,7 @@ See checkpoint_continuation.md for precise settings, paths and failure policy.
 
 ---
 
-# Numerical stability release â€” 2026-10-28
+# Numerical stability release — 2026-10-28
 
 Initial checkout was clean on dev/unified-ecg-pipeline; origin was fetched.
 The user's prior real Kaggle run reportedly passed sync/install/audit, both
@@ -645,7 +645,7 @@ checkpoint/wheel reuse, and the verified-versus-suspected cause distinction.
 
 ---
 
-# Unattended Kaggle entry-point release â€” 2026-10-28
+# Unattended Kaggle entry-point release — 2026-10-28
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
@@ -709,7 +709,7 @@ completed/skipped/failed experiments and results under
 
 ---
 
-# Task 3 release checks â€” 2026-10-28
+# Task 3 release checks — 2026-10-28
 
 Repository: existing dev/unified-ecg-pipeline. Remote fetched before changes.
 The initial working tree included the user's one-line encoder fix and new
@@ -790,7 +790,7 @@ See README and kaggle_execution.md for the Run All controls and resume procedure
 
 ---
 
-# Executed checks â€” latest 2026-10-27
+# Executed checks — latest 2026-10-27
 
 ## Kaggle preflight preparation milestone
 
@@ -841,7 +841,7 @@ full-training normalization, completing superclass/subclass training and test
 evaluation, validating GPU memory use, and inspecting/exporting those real-run
 artifacts. See `kaggle_execution.md` and the notebook's explicit run controls.
 
-## Baseline milestone â€” 2026-10-26
+## Baseline milestone — 2026-10-26
 
 Final automated command, run from `D:\Coding\BTP\BTP_project_files`:
 
