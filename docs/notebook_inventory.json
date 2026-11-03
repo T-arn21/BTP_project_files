@@ -1,0 +1,3696 @@
+[
+  {
+    "filename": "preprocessing-reusable-data-pipeline.ipynb",
+    "sha256": "bd2d26ac718efe8abbb4fe6e348df6d5888d8f002b1644af8f7c892a7e62109e",
+    "cells": 48,
+    "code_cells": [
+      {
+        "cell_index": 3,
+        "source_lines": 44,
+        "source_sha256": "23bcfc0476588e9f6b6ee9afa6691b15c0947bb58c89dcefa304cb406b7df1d3",
+        "definitions": [
+          {
+            "name": "ensure_package",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 1,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 450,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 5,
+        "source_lines": 53,
+        "source_sha256": "9e3fa910e820441c21b75c06450c3adf43a4132d850180ce751a97fc88a8527e",
+        "definitions": [],
+        "execution_count": 2,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 53,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 7,
+        "source_lines": 97,
+        "source_sha256": "7a44501db570c448f183db601e19aed9d15aa23aeaf17b96956c97c8a3936c56",
+        "definitions": [
+          {
+            "name": "CONFIG",
+            "kind": "ClassDef"
+          }
+        ],
+        "execution_count": 3,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 75,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 8,
+        "source_lines": 55,
+        "source_sha256": "aac01211ce9b94407302c2831221ef2f9097ee335b06bd656612ed8753ea821a",
+        "definitions": [
+          {
+            "name": "discover_ptbxl_root",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 4,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 149,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 10,
+        "source_lines": 34,
+        "source_sha256": "4582c626551b9f873f2202cd8d921efdd3330080a509c2ffbc045292c22702d6",
+        "definitions": [
+          {
+            "name": "set_global_seed",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 5,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 44,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 12,
+        "source_lines": 57,
+        "source_sha256": "f6fabefc3c153e66a9041e9a6e5eb5bf40dd11eaa26b17757245b6b836d38e01",
+        "definitions": [
+          {
+            "name": "load_metadata",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 6,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 609,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 56,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 14,
+        "source_lines": 71,
+        "source_sha256": "115b1070b2d84750588b61f32993790e86970e8237fe7b63896903829c5062bc",
+        "definitions": [
+          {
+            "name": "aggregate_labels",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "build_multilabel_matrix",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 7,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 154,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 140,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 16,
+        "source_lines": 57,
+        "source_sha256": "75405d3b745b085b2faf9d5b54c244d242fe79bd5eaf6c8ad4587e6b5146e97f",
+        "definitions": [
+          {
+            "name": "load_signal",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 8,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 189,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 18,
+        "source_lines": 112,
+        "source_sha256": "67c199886c33cba82a753f9d3a756a9349835a40232ac725d773bb65bf63b7fe",
+        "definitions": [
+          {
+            "name": "validate_signal",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "run_validation_sweep",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 9,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 82,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 20,
+        "source_lines": 56,
+        "source_sha256": "9d1d96cefaeea1d9db1e52d4d82ea82baaa43ef2f6ac29ebc8310344acf7ae93",
+        "definitions": [
+          {
+            "name": "compute_signal_statistics",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 10,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 22,
+        "source_lines": 120,
+        "source_sha256": "53c394d8aae959e87c05b109c89c22609ce02bbecd8625cd5ecc594855683d47",
+        "definitions": [
+          {
+            "name": "zscore_normalize",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "minmax_normalize",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "robust_normalize",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "SignalNormalizer",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "fit",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "transform",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 11,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 57,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 24,
+        "source_lines": 118,
+        "source_sha256": "5c14f0e22c90e79625709df489e54a0aabaa8c39fed32c22668b9ae9c2be71da",
+        "definitions": [
+          {
+            "name": "remove_baseline_wander",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "remove_powerline_noise",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "bandpass_filter",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "median_filter_baseline",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "preprocess_filter_pipeline",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 12,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 26,
+        "source_lines": 57,
+        "source_sha256": "c8eedd27840fa0d952608d0942b13f973db6eccb816474a5ea859fb31b9a5501",
+        "definitions": [
+          {
+            "name": "pad_or_crop",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 13,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 207,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 28,
+        "source_lines": 114,
+        "source_sha256": "39edb0d959997a4aacc54fafeeea027c18cf9fa6c8ba20c2db54afc91644ad69",
+        "definitions": [
+          {
+            "name": "ECGAugmentation",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "_roll",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "gaussian_noise",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "amplitude_scaling",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "random_time_shift",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "random_masking",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "random_crop",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "lead_dropout",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "time_stretch",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "random_jitter",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "random_scaling",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__call__",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 14,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 199,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 30,
+        "source_lines": 52,
+        "source_sha256": "263fafdd5387485dcf242d5a1f34e2e2f835cfb49bddcb275aed6d32e3bb3c7c",
+        "definitions": [
+          {
+            "name": "visualize_single_augmentation",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 15,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 102,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 90,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 131,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 109,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 109,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 115,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 120,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 104,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 32,
+        "source_lines": 52,
+        "source_sha256": "675c0b1ef331aecab8431d2700b49468908fdf2aa1a75ff6428f057a9a2331ed",
+        "definitions": [
+          {
+            "name": "build_official_splits",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 16,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 165,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 126,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 34,
+        "source_lines": 111,
+        "source_sha256": "ad2621fc2519e0d3b2e4c945071cecbdbd21228c87e5be6e6e3fd83c844d37cf",
+        "definitions": [
+          {
+            "name": "PTBXLDataset",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "PTBXLClassificationDataset",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "PTBXLSSLDataset",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__len__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "_load_and_process",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__getitem__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__getitem__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__getitem__",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 17,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 135,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 36,
+        "source_lines": 42,
+        "source_sha256": "798f399230dd8100800f0f133142c6c77cc1196c12555e117bcf01d6bb474c6b",
+        "definitions": [
+          {
+            "name": "build_dataloader",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "to_device",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 18,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 59,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 38,
+        "source_lines": 27,
+        "source_sha256": "d9610e58f7b382e1f7bccac2ecfcf6e4ca9a42c4484cd94b8547ea96bc7dd04a",
+        "definitions": [],
+        "execution_count": 19,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 300,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 40,
+        "source_lines": 48,
+        "source_sha256": "dee137c76a9c40248fff2e250e0ac1e186892e3bc6a43fac8c3d7ac924a08848",
+        "definitions": [
+          {
+            "name": "benchmark_dataset_loading",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "benchmark_dataloader",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 20,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 295,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 42,
+        "source_lines": 45,
+        "source_sha256": "e86e1c609f3ff75fa778a87dbc18f714744b3d1a0b9632879fd59720848d903f",
+        "definitions": [],
+        "execution_count": 21,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 45,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 44,
+        "source_lines": 48,
+        "source_sha256": "6ca5a52ec3a628d8a10e4e66cf182c1c95b2b949aefee9612626216c5c5a7f6d",
+        "definitions": [],
+        "execution_count": 22,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 541,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 46,
+        "source_lines": 60,
+        "source_sha256": "2ef2202b607417424789c256016ea5586245f8bace1d9acd20e9a852f160e162",
+        "definitions": [
+          {
+            "name": "get_train_loader",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "get_validation_loader",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "get_test_loader",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "get_ssl_loader",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "normalize_signal",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "augment_signal",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 23,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 341,
+            "error": null
+          }
+        ]
+      }
+    ],
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.12.13"
+    },
+    "kaggle": {
+      "accelerator": "none",
+      "dataSources": [
+        {
+          "sourceType": "datasetVersion",
+          "sourceId": 1905968
+        }
+      ],
+      "isInternetEnabled": true,
+      "language": "python",
+      "sourceType": "notebook",
+      "isGpuEnabled": false
+    }
+  },
+  {
+    "filename": "ptb-xl-ecg-supervised-mamba-evaluation-version2.ipynb",
+    "sha256": "37a3b16a8ed5a7eb446d6029d2ae51da9539451eb71d44f38d005b885450789f",
+    "cells": 57,
+    "code_cells": [
+      {
+        "cell_index": 3,
+        "source_lines": 55,
+        "source_sha256": "6d8953b6bdce18f11f6b81b3afa2c05c096d1205e4a1dc92ca3ce64e694c8364",
+        "definitions": [
+          {
+            "name": "ensure_package",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 1,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 216,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 4,
+        "source_lines": 48,
+        "source_sha256": "fea821553c9a7bb0d694686bbbdcadf15125a6909aff15f867db7985ec25af11",
+        "definitions": [],
+        "execution_count": 2,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 132,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 5,
+        "source_lines": 32,
+        "source_sha256": "910c7bab00e7c1b700d59cb7f284702063a89301cf3f9b02cb5b6c486cc3c11e",
+        "definitions": [
+          {
+            "name": "set_global_seed",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 3,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 23,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 7,
+        "source_lines": 48,
+        "source_sha256": "af829da50df0c7ca968bfd6a7818b03b1592a675268fa9c6263dd167470e1e35",
+        "definitions": [
+          {
+            "name": "locate_checkpoint_dir",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 4,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 1556,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 9,
+        "source_lines": 59,
+        "source_sha256": "6257e855f962140c73b408f22410ce7f6fe23a1afd979ea8dc6cf847b55f3899",
+        "definitions": [
+          {
+            "name": "EVAL_CONFIG",
+            "kind": "ClassDef"
+          }
+        ],
+        "execution_count": 5,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 74,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 10,
+        "source_lines": 2,
+        "source_sha256": "d1473ae28c9471f27a19d493f5b6b96bf8c8afa731800f59ce6cb71905bf14c6",
+        "definitions": [],
+        "execution_count": 6,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 210,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 12,
+        "source_lines": 73,
+        "source_sha256": "4e1227092afb2f5321ae2e4b4b3aaa67b484545ab985db8f333a04b5152e4e3a",
+        "definitions": [
+          {
+            "name": "run_notebook_globals",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "locate_pipeline_notebook",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 7,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 1543,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 210,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 329,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 82,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 57,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 406,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 102,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 90,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 131,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 109,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 109,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 115,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 120,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 269,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 620,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 482,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 1063,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 13,
+        "source_lines": 15,
+        "source_sha256": "9860379ce3b6d4cf12cd3cb23498493a8042ff89f322196897bd29128875c698",
+        "definitions": [],
+        "execution_count": 8,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 182,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 14,
+        "source_lines": 36,
+        "source_sha256": "046c26f28cb7e6bdcf7190b46551b6b3d4604e096f71480cdd268df16d851dd2",
+        "definitions": [],
+        "execution_count": 9,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 514,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 16,
+        "source_lines": 182,
+        "source_sha256": "6933a94db3a350bbee8805d1b41f4f4fdb2bb05c6a1efb46849a3d6d97dc2cc1",
+        "definitions": [
+          {
+            "name": "BidirectionalMambaBlock",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "AttentionPool",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "ClassificationHead",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "MambaClassifier",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 10,
+        "outputs": []
+      },
+      {
+        "cell_index": 17,
+        "source_lines": 46,
+        "source_sha256": "157469a7b223d4bd7716b1ee8cd2aa248ab50fe6858c022eac43d66822aec8e2",
+        "definitions": [],
+        "execution_count": 11,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 380,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 18,
+        "source_lines": 41,
+        "source_sha256": "ef6d097c3974ab7dff2985cc692c786dd0cf387c85a9c18c9ce626094cc3a524",
+        "definitions": [
+          {
+            "name": "summarize_model",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 12,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 709,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 20,
+        "source_lines": 112,
+        "source_sha256": "ebf9929332493ef669c95d1be5119a64ec3f9763214af939fee5684edb27809c",
+        "definitions": [
+          {
+            "name": "InferenceResults",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "InferenceEngine",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "run",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 13,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 262,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 186,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 21,
+        "source_lines": 13,
+        "source_sha256": "b6f08c92c5e562a9698a1d46ae72c5e16eea1d289eabfd9a0ff492fb0015213a",
+        "definitions": [],
+        "execution_count": 14,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 76,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 23,
+        "source_lines": 112,
+        "source_sha256": "bdce337bb62562736da72919c4ed2042b7586ee193709f3394ecec14ac4879d1",
+        "definitions": [
+          {
+            "name": "Evaluator",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "_safe_auroc",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "per_class_table",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "overall_metrics",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "evaluate",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 15,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 553,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 24,
+        "source_lines": 13,
+        "source_sha256": "8bbdea523985b55e9a4e1b5a798ff59f32bddff70d9f5216df5a84093566cb12",
+        "definitions": [],
+        "execution_count": 16,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 607,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 26,
+        "source_lines": 173,
+        "source_sha256": "c538a8d954b7e97784cb5eb58152f1cf20c86a3c36c0dbefec00ef9cdc3ff30b",
+        "definitions": [
+          {
+            "name": "VisualizationEngine",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "_save",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "plot_roc_curves",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "plot_pr_curves",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "plot_confusion_matrices",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "plot_prediction_distribution",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "plot_confidence_histogram",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "plot_calibration_curves",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 17,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 27,
+        "source_lines": 11,
+        "source_sha256": "23f26b6375a15474a3bae0b99227e5993e744ff3751519db1bb194ece745699c",
+        "definitions": [],
+        "execution_count": 18,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 28,
+        "source_lines": 11,
+        "source_sha256": "951525422c06d22ad80857f997ce27d93b6c46bee7b7d905bd01a970eae6f5ef",
+        "definitions": [],
+        "execution_count": 19,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 29,
+        "source_lines": 13,
+        "source_sha256": "9eec57b4dedbad4d2c204abf6d9aaf0b1ed225e2510bf170c512988ce1132d6f",
+        "definitions": [],
+        "execution_count": 20,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 81,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 31,
+        "source_lines": 50,
+        "source_sha256": "ef3351f1cc36c38f0c2f7504d346322287216b4eb603ed9e3bf6cb62c9a97d9c",
+        "definitions": [
+          {
+            "name": "extract_embeddings",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 21,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 163,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 32,
+        "source_lines": 28,
+        "source_sha256": "5f2c9a59f3c27145725661f033c5221aec5e879de0d8baa3f9da50b4e1d30ed3",
+        "definitions": [
+          {
+            "name": "dominant_class",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "scatter_by_class",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 22,
+        "outputs": []
+      },
+      {
+        "cell_index": 33,
+        "source_lines": 13,
+        "source_sha256": "c9940e5d6e481cb239b4365f1a9d57a948569fa395d2b0a88d33c9b1ceed7e30",
+        "definitions": [],
+        "execution_count": 23,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 34,
+        "source_lines": 12,
+        "source_sha256": "f4748cb8c59582ae8d7dfea5379c22f64f0867a080ba5cae0ae7497418c4580d",
+        "definitions": [],
+        "execution_count": 24,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 35,
+        "source_lines": 12,
+        "source_sha256": "92e05426867c06215664a745984eaf06667036222a7123546447de5280339d64",
+        "definitions": [],
+        "execution_count": 25,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 36,
+        "source_lines": 34,
+        "source_sha256": "b37f704295c92cac04610fc5dbc0ec71158789a2413b831c755ca491064f4dfe",
+        "definitions": [],
+        "execution_count": 26,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 142,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 38,
+        "source_lines": 74,
+        "source_sha256": "0bb9bb10adf62d4d5ae0b96b1efeffb4555fcd611feb4e9cf1c5186d0abcdf3d",
+        "definitions": [
+          {
+            "name": "ExplainabilityEngine",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "integrated_gradients",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "saliency_map",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "lead_importance",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "temporal_importance",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 27,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 62,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 39,
+        "source_lines": 37,
+        "source_sha256": "aa8377d5d4d44deb1af7bc992e3f6f7c1762d1e2b808c69b7fa88247635b0e31",
+        "definitions": [
+          {
+            "name": "select_representative_indices",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 28,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 302,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 40,
+        "source_lines": 13,
+        "source_sha256": "7bb3668f6f3b4a54793be70223ef4076c4ae28b19d27987d277535483a79baff",
+        "definitions": [
+          {
+            "name": "fetch_signal_by_ecg_id",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 29,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 63,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 41,
+        "source_lines": 36,
+        "source_sha256": "0507222c47ba78df4e1c32f9d2550b96907b3f9d9ce7ba1a06214fdb94c5980c",
+        "definitions": [],
+        "execution_count": 30,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 42,
+        "source_lines": 33,
+        "source_sha256": "d07fd4f13f2b20a6667e755f8fa207122372215835c3ded4183191462b5e4758",
+        "definitions": [],
+        "execution_count": 31,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 44,
+        "source_lines": 72,
+        "source_sha256": "aec37b6c90ace947316905933ca813e3dc5b59ed241b96dad0a64589ecd833da",
+        "definitions": [
+          {
+            "name": "ErrorAnalyzer",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "false_positives",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "false_negatives",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "high_confidence_errors",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "low_confidence_predictions",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "rare_class_errors",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "summary_table",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 32,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 567,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 45,
+        "source_lines": 41,
+        "source_sha256": "038ec9d7d65cb2015d8a7c8aab87ee006ee5b1689c952e57902f9f44e929b7de",
+        "definitions": [
+          {
+            "name": "plot_error_examples",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 33,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 47,
+        "source_lines": 119,
+        "source_sha256": "97960a7bccf0acb865ff000b554c773ddbe5ad8a06d76c0de0e7f6a2bf8a66eb",
+        "definitions": [
+          {
+            "name": "ComputationalProfiler",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "parameter_stats",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "latency_throughput",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "gpu_memory_mb",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "estimate_flops",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 34,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 566,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 48,
+        "source_lines": 8,
+        "source_sha256": "9d009c5e0610def992a56c778e2b6882db3a2d7973814197e7187e65d5f830f7",
+        "definitions": [],
+        "execution_count": 35,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 87,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 50,
+        "source_lines": 6,
+        "source_sha256": "3399ddc76aaefc2c68f95a8ae2b07c31ad9c0d787263b0ac82c80032f49991eb",
+        "definitions": [],
+        "execution_count": 36,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 40,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 51,
+        "source_lines": 31,
+        "source_sha256": "f1c57fba8c93081fc237e203d3f0d1cfe46d9e725be4064dd2becc1af806645b",
+        "definitions": [],
+        "execution_count": 37,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 164,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 53,
+        "source_lines": 65,
+        "source_sha256": "7008bfca0201d4a12404cfe42b9c4af4414cc217dde51835199af045427b57e3",
+        "definitions": [
+          {
+            "name": "ExportManager",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "write_classification_report",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "manifest",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 38,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 144,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 55,
+        "source_lines": 49,
+        "source_sha256": "de5ba90cc35cadcdce94ca76a86db57430a2d91e1d38eb679776a0dc1a99d725",
+        "definitions": [],
+        "execution_count": 39,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 2175,
+            "error": null
+          }
+        ]
+      }
+    ],
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.12.13"
+    },
+    "kaggle": {
+      "accelerator": "nvidiaTeslaT4",
+      "dataSources": [
+        {
+          "sourceType": "datasetVersion",
+          "sourceId": 1905968
+        },
+        {
+          "sourceType": "kernelVersion",
+          "sourceId": 337931288
+        },
+        {
+          "sourceType": "kernelVersion",
+          "sourceId": 338564933
+        }
+      ],
+      "isInternetEnabled": true,
+      "language": "python",
+      "sourceType": "notebook",
+      "isGpuEnabled": false
+    }
+  },
+  {
+    "filename": "ptb-xl-ecg-supervised-mamba-trainin-v2-improved.ipynb",
+    "sha256": "4cbe718289a585c47f795bb8c37eddb8f66ffcb21e6fbbc7604d8185cd91e1e2",
+    "cells": 34,
+    "code_cells": [
+      {
+        "cell_index": 3,
+        "source_lines": 56,
+        "source_sha256": "3360a5049dc0648e9a4d3b99191892178ea65d61c0742bc557c22437c3e5745d",
+        "definitions": [
+          {
+            "name": "ensure_package",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 1,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 224,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 4,
+        "source_lines": 37,
+        "source_sha256": "a47a824bd5f521e7d6bdf16808e4683c783a0ab4aa96e7102ef7b25b4ca6a043",
+        "definitions": [],
+        "execution_count": 2,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 132,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 5,
+        "source_lines": 32,
+        "source_sha256": "db85d3d4223c99fdce724b8d4a3ed6224568f3b3eefc93f29c8faa6b729a9828",
+        "definitions": [
+          {
+            "name": "set_global_seed",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 3,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 23,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 7,
+        "source_lines": 80,
+        "source_sha256": "cad4567d5d4ef876848523705257598d366d70d5d6fc069d45cecb02c4fa0124",
+        "definitions": [
+          {
+            "name": "TRAIN_CONFIG",
+            "kind": "ClassDef"
+          }
+        ],
+        "execution_count": 4,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 295,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 9,
+        "source_lines": 101,
+        "source_sha256": "77c3714a4b566ccd86037990a26d44b697422e340a6febb88f937f6b35b5656c",
+        "definitions": [
+          {
+            "name": "run_notebook_globals",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "locate_pipeline_notebook",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 5,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 1553,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 210,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 329,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 82,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 57,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 406,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 102,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 90,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 131,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 109,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 109,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 115,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 120,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 269,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 620,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 482,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 1093,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 10,
+        "source_lines": 24,
+        "source_sha256": "c436be75d89e347e842b6a6994272b476810d44750a9cd3ba6e45d27c672c571",
+        "definitions": [],
+        "execution_count": 6,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 409,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 12,
+        "source_lines": 19,
+        "source_sha256": "593612a5c5d54e634da8922431182de5f7c6d4359858258c89da782938f881f2",
+        "definitions": [],
+        "execution_count": 7,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 13,
+        "source_lines": 28,
+        "source_sha256": "b7ba470cd0c131f985e15f52abc38f0ccabcbc46ac4c83e12a0c43bf02e30141",
+        "definitions": [],
+        "execution_count": 8,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 294,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 15,
+        "source_lines": 19,
+        "source_sha256": "3a4ca7d45eefc828dc423b70228c6e85b68817670e61d21260121296cf7bb21f",
+        "definitions": [],
+        "execution_count": 9,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 163,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 17,
+        "source_lines": 195,
+        "source_sha256": "f5b61d4774fcaf93ad2400cb5448a7b97eed0fce74fbfb4decfd7619e264d22d",
+        "definitions": [
+          {
+            "name": "BidirectionalMambaBlock",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "AttentionPool",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "ClassificationHead",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "MambaClassifier",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "forward",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 10,
+        "outputs": []
+      },
+      {
+        "cell_index": 18,
+        "source_lines": 30,
+        "source_sha256": "4aa821a7264436b73d59af9394194f4506953b6e6ffa2490f688fb1694da4b30",
+        "definitions": [],
+        "execution_count": 11,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 153,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 20,
+        "source_lines": 107,
+        "source_sha256": "c5cdcd8ddda81c37d1291b4018f41cd6d7a2bfb282e2e39b7c9b95a43f4a7be1",
+        "definitions": [
+          {
+            "name": "make_criterion",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "smooth_labels",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "EarlyStopping",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "step",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 12,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 340,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 22,
+        "source_lines": 155,
+        "source_sha256": "588259884ddcc005bcf4af7f66e28e754daf4f97a334da9016fbd3d77aba94c9",
+        "definitions": [
+          {
+            "name": "Trainer",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "_run_epoch",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "fit",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 13,
+        "outputs": []
+      },
+      {
+        "cell_index": 24,
+        "source_lines": 86,
+        "source_sha256": "ef0d24a819559fa75bafc1c98bc977df010f724b68eb788235a12172ef20a009",
+        "definitions": [
+          {
+            "name": "_config_to_dict",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "CheckpointManager",
+            "kind": "ClassDef"
+          },
+          {
+            "name": "__init__",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "save",
+            "kind": "FunctionDef"
+          },
+          {
+            "name": "load",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 14,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 436,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 26,
+        "source_lines": 12,
+        "source_sha256": "ab7ad07580dae0a767418b6dbeeae233b6b67313041b4ccbecffbc00c07139d1",
+        "definitions": [],
+        "execution_count": 15,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 106,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 185,
+            "error": null
+          },
+          {
+            "type": "execute_result",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 28,
+        "source_lines": 45,
+        "source_sha256": "9f6d79b856e1fc79af3a2f1ae6d88a062426aed76bf9dbe3e2130207c1486348",
+        "definitions": [],
+        "execution_count": 16,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 105,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 30,
+        "source_lines": 20,
+        "source_sha256": "6f6e62a832f7ef84d722e5ac5968ad3a0bccc9aafb70b99ea8e672f799dcd84d",
+        "definitions": [],
+        "execution_count": 17,
+        "outputs": [
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 63,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "application/vnd.jupyter.widget-view+json",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 68,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 31,
+        "source_lines": 31,
+        "source_sha256": "e39ea2bb13e5c660a2682f80ee223c9042c9ee1b0248a85c2ffacf9caddbb09e",
+        "definitions": [],
+        "execution_count": 18,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "display_data",
+            "mime_types": [
+              "image/png",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          }
+        ]
+      },
+      {
+        "cell_index": 32,
+        "source_lines": 55,
+        "source_sha256": "1336a240c76b1fd6a395d32d5e7b7c67e44ea31bddf8a7f5cca09b9fbadf9b7d",
+        "definitions": [
+          {
+            "name": "tune_threshold_for_f1",
+            "kind": "FunctionDef"
+          }
+        ],
+        "execution_count": 19,
+        "outputs": [
+          {
+            "type": "display_data",
+            "mime_types": [
+              "text/html",
+              "text/plain"
+            ],
+            "text_characters": 0,
+            "error": null
+          },
+          {
+            "type": "stream",
+            "mime_types": [],
+            "text_characters": 221,
+            "error": null
+          }
+        ]
+      }
+    ],
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.12.13"
+    },
+    "kaggle": {
+      "accelerator": "nvidiaTeslaT4",
+      "dataSources": [
+        {
+          "sourceType": "datasetVersion",
+          "sourceId": 1905968
+        },
+        {
+          "sourceType": "kernelVersion",
+          "sourceId": 337931288
+        }
+      ],
+      "isInternetEnabled": true,
+      "language": "python",
+      "sourceType": "notebook",
+      "isGpuEnabled": false
+    }
+  }
+]

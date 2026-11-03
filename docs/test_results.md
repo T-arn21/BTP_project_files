@@ -1,0 +1,842 @@
+# ASL held-out provenance compatibility repair - 2026-11-02
+
+Full CPU suite: **270 passed, 6 skipped, 8 existing scheduler warnings in
+119.93s**. Command (local Git fixture permissions enabled):
+
+```powershell
+$env:MPLBACKEND = 'Agg'
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-asl-provenance-release --tb=short
+```
+
+The repair is limited to the ASL classifier metadata comparison: two held-out
+stat digests and the held-out cache location may differ only with identical
+processed payload SHA256 verified during the current data load. Original SSL
+training identity, normalization, class order, splits, metadata, versions and
+all substantive preprocessing fields remain strict. No additional waveform
+hash pass is performed by initialization. Saved reports cannot authorize reuse.
+
+New CPU tests cover both five- and 23-class classifiers: accepted equivalent
+signals after filesystem signature/cache-key changes, path-only relocation,
+rejected real waveform changes despite the same reader signature, changed
+normalization/splits/version/preprocessing/training identity/class order,
+missing payload/receipt, inconsistent duplicate identities and changed cache
+files. Accepted and rejected comparison reports retain exact expected/actual
+values; original classifier hashes remain unchanged. Existing CPU stage/worker
+integration, cache authentication, resume and supervised tests passed.
+
+Notebook schema and every code cell's syntax passed; executable cell contents,
+checkpoint paths/pins, both ASL flags and recipe were verified unchanged from
+7716f19. The first restricted test invocation had two local Git fixture setup
+errors; the final full run above passed with appropriate local Git access.
+Six CUDA-dependent tests were skipped. No Kaggle/GPU run was launched.
+
+# ASL full-classifier second stage - 2026-10-31
+
+Implemented explicit loss_type=bce/asl, stable FP32 ASL with gamma_pos0,
+gamma_neg4, clip.05 and detached focal weights/mean element reduction. ASL
+rejects BCE pos_weight, target smoothing and AMP; the default weighted BCE path
+and smoothing remain intact. Legacy configuration defaults normalize safely,
+while an explicit loss change prevents exact-resume compatibility.
+
+The new stage SHA-pins and preflights both completed epoch-15 validation-selected
+best classifiers, transfers every backbone/pooling/head tensor with strict
+keys/shapes/dtypes, keeps exact class/preprocessing/cache/split metadata and
+starts fresh AdamW/cosine/scaler/history/selection state. Source encoder remains
+required for SSL data provenance only; SSL-only model initialization is skipped.
+Scoped cache hashing is reused only on read-only filesystems with unchanged
+identity/manifest/payload pin; writable files are rehashed, including mapped
+writes whose Windows stat signature may not change. No saved report authorizes
+reuse across executions. Missing inputs are checked with standard-library-only
+path/sidecar preflight before CUDA installation/probes.
+
+The notebook pins the user-confirmed arnavvt/checkpoint-2 paths, epoch7/14 model
+hashes, both ASL task flags and five full-data FP32 epochs at LR1e-5/min1e-6,
+batch2, fresh cosine/no warmup. All other training/smoke/diagnostic flags are off.
+One new directory per task exports both validation/test threshold variants,
+per-class predictions/metrics, threshold comparison CSV, source/reset provenance,
+new checkpoints/history and ASL-labeled curves. Old outputs remain unchanged.
+
+```powershell
+$env:MPLBACKEND = 'Agg'
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-asl-release --tb=short
+```
+
+**239 passed, 6 skipped, 8 existing scheduler warnings in 512.11s.** CUDA Mamba
+tests are skipped on this CPU host. Final focused validation after the lightweight
+preflight and worker additions: **31 passed in 96.37s**, using
+`python -m pytest tests/test_asl.py -q --basetemp=outputs/pytest-asl-final-worker --tb=short`.
+The final ASL/controller subset also passed 38 checks before the last worker test.
+Coverage includes extreme logits/finite gradients, ASL formula/BCE limit,
+no global grad-mode corruption, disabled BCE controls, complete model transfer,
+new optimizer/scheduler, class/data/config/selection/hash rejection, dtype
+rejection, metadata/history and four threshold exports, plus two-task CPU worker
+routing with exactly one simulated immutable-cache hash. Legacy workflow tests
+explicitly select their own flags rather than inheriting the new ASL task defaults.
+Notebook schema/all code-cell syntax, exact recipe and both confirmed paths pass.
+
+Read-only local binary preflight verified real superclass epoch7 SHA
+4f2fba212204d399a1f8dc79ae9e22d9d0d879eba88471d39e19b0a61d9c9c94 and subclass
+epoch14 SHA 85abb89239b9c7a9a15119cc93f11e66308324d3f800f8d2374db4770e028380,
+5/23-class vocabularies and source history selection/completion at epoch15.
+Source session environment was Tesla T4/CUDA12.8. Rough runtime estimate is
+3.5-4.5 GPU hours total, based on prior measured ~21.9-minute epochs, plus setup.
+No Kaggle execution, GPU smoke or full GPU training was launched here; the CPU
+stage tests use tiny synthetic classifier doubles, not real Mamba benchmarks.
+See asl_second_stage.md for the precise data inputs, loss semantics and settings.
+
+# Completed SSL-cache-backed epoch extension - 2026-10-30
+
+Implemented full-state resume from completed benchmarks into new experiment
+folders. Only the total epoch cap and required output-root relocation differ;
+all other saved config/classes/model/preprocessing/split metadata remain exact.
+Original best/last and config/history/completion records are snapshot-copied and
+hashed; original result folders are never changed. Historical epochs append
+without duplication, and the best across old/new epochs remains authoritative.
+
+The explicit hold_completed_lr policy restores the original completed scheduler
+and optimizer unchanged, then holds terminal LR instead of resetting/stretching
+or continuing the cosine past its old horizon. Policy is saved in every new
+checkpoint and inherited by exact interruption resume. Model/AdamW/scaler,
+best/early-stopping/history and Torch/CUDA/Python/NumPy/loader/augmentation RNG
+restore. Unsupported worker-local augmentation state and exhausted patience fail.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-extension-release --tb=short
+```
+
+**210 passed, 6 skipped, 8 warnings in 73.72s.** Skips require CUDA Mamba;
+warnings are existing SequentialLR notices. Focused resume coverage includes
+both 5/23-class CPU classifiers, first-step model/optimizer/scaler/RNG state,
+unchanged scheduler state and held LR, epoch 1-10 history, immutable source files,
+interrupted continuation producing identical final weights, strict rejection of
+changed LR/model/preprocessing/labels/splits/epoch cap/policy/history/completion,
+unique full-run discovery and an end-to-end cache-backed experiment extension.
+A final import-only change keeps resume settings validation standard-library-only
+before dependency installation; its focused fresh-interpreter regression and
+all resume cases also passed: **25 passed, 3 existing scheduler warnings in
+16.34s**, using `python -m pytest tests/test_resume_extension.py -q
+--basetemp=outputs/pytest-extension-final --tb=short`.
+
+Both actual epoch-5 result_4 checkpoint pairs in session
+20261029T180106Z_e154ce34 passed offline validation against their saved metadata:
+complete histories, matching best/config/source records, finite model state,
+terminal LR 1e-6, early-stopping counter0. This does not certify newly processed
+live Kaggle metadata: any discrepancy there must still reject.
+Machine-readable source checks/hashes: outputs/completed_resume_validation.json.
+Notebook schema/syntax and exclusive resume configuration pass. Default resume
+flag remains False. No Kaggle execution, real GPU smoke or training was run.
+See ssl_completed_resume.md for exact inputs and first-cell settings.
+
+# Explicit SSL-cache-backed fine-tuning - 2026-10-29
+
+Added the opt-in ssl_data_mode="ssl_cache_backed" route. It authenticates the
+completed encoder, original full cache identity/IDs/payload SHA and original
+normalizer, then reads training data from that cache. It never rebuilds live
+training signals, fits a normalizer or invokes independent waveform equivalence.
+Current raw processing is restricted to requested validation/test records with
+exact preprocessing configuration and the original normalizer. The data source,
+original training identity and held-out identity have explicit separate scopes.
+Canonical labels, model/data settings, complete training/held-out/patient IDs,
+normalization fit provenance and dataset version/metadata remain strict gates.
+
+The notebook now requests both GPU smokes only (batch2, two train/validation
+batches, one epoch, AMP/augmentation off); all full tasks remain disabled.
+Outputs explicitly declare ssl_cache_backed_finetuning and no independent
+waveform-reproduction claim. New runs do not overwrite original artifacts.
+
+Focused suite: **18 passed in 16.06s**, including both complete worker smoke
+stages with CPU adapter doubles, no training raw reads/refits/equivalence calls,
+original normalizer/cache tensor values, canonical labels/disjoint patients,
+corrupted/missing cache, incorrect encoder hash, source-manifest mutations,
+wrong dataset version/model/metadata/training IDs, altered labels/normalization,
+full held-out separation and effective source provenance in smoke checkpoints.
+The existing independent audit and baseline regressions remain in the full suite.
+
+Read-only real artifact check with the new authenticator passed for the original
+pinned epoch-20 encoder and original 17,441-record cache, payload
+SHA a507c0a89f768485ffb13ff2cd3a538867669933baa2bc1861d35a95d987b9c3.
+Original normalizer shape/finite/positive-std validation also passed. No raw
+training waveforms, real model/GPU forward/backward or Kaggle training ran here.
+Notebook schema, all code-cell syntax and exact smoke-only flag checks passed.
+
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-cache-backed-final --tb=short
+```
+
+**186 passed, 6 skipped, 5 warnings in 66.17s.** Skips require CUDA Mamba;
+warnings are existing scheduler notices. Source architecture and all pre-existing
+independent provenance/baseline checks remain covered. See the exact notebook
+inputs and settings in ssl_cache_backed_finetuning.md. Real GPU smokes remain
+pending Kaggle execution; no successful real smoke or full benchmark is claimed.
+
+# SSL normalizer investigation and independent content proof - 2026-10-29
+
+Inspected CPU session 20261029T135756Z_bcc506df from the newly supplied results_3
+download read-only. Its three mismatches are confirmed. All 24 original files
+were hashed/size/mtime recorded and rechecked unchanged. Encoder and reference
+payload pins independently verified against the original download.
+
+The normalization fit IDs/configuration match. Among 1,004 overlapping train
+ECGs, 80 differ in 86 float32 values; all 80 are normalization fit records.
+Maximum absolute waveform difference 2.9802322387695312e-08; maximum float32
+ULP distance 21. Re-fitting the original cache exactly reproduces original
+normalization; re-fitting the CPU cache exactly reproduces CPU normalization.
+Saved mean/std maximum differences are 1.8160874280109818e-14 and
+2.906008766956347e-14 respectively. Thus processed-input differences explain
+the normalization mismatch; the CPU normalization cache is not proved corrupt.
+Deeper CPU/build arithmetic versus raw-input differences remain unverified.
+Nominal NumPy/SciPy/WFDB/source versions match; raw waveform files and historical
+CPU build details are unavailable locally. The remaining 16,437 train ECGs are
+not assumed equivalent. See ssl_normalizer_migration.md and the ignored machine
+report outputs/normalizer_forensics/cpu_session_findings.json.
+
+Full content proof now reports independently when normalizer values mismatch.
+Diagnostic refits/build metadata are saved separately, including on content
+rejection when complete caches are available. Optional authenticated-source
+normalization requires complete byte equivalence, pinned export, exact fit
+provenance and reproducible current fit, with no other mismatches. It binds
+training to the verified current cache and records effective statistics in new
+manifests/checkpoints. The next notebook defaults remain CPU-only, report-only
+strict policy; no GPU smoke or full run is enabled. Known real waveform drift
+must reject, even when numerically tiny.
+
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-normalizer-evidence-release --tb=short
+```
+
+**168 passed, 6 skipped, 5 warnings in 85.30s.** Skips require CUDA Mamba;
+warnings are existing scheduler notices. New tests cover exact timestamp-only
+migration, independent strict reporting without approval, authenticated source
+reuse for both tasks with fresh heads and exact source statistics, rejected
+wrong fit IDs/splits/settings/statistics/unauthenticated state, irreproducible
+current normalization, one-ULP waveform drift with a correct current fit, missing
+reference evidence even with otherwise exact values, and effective normalizer
+persistence in new checkpoint metadata. The notebook schema/code syntax,
+CPU-only flags, strict report-only default and original encoder pin pass.
+No Kaggle execution or GPU smoke/full training was launched.
+
+# Reference-cache layouts and CPU provenance-only execution - 2026-10-29
+
+Source-level reproduction confirms the reported session 20261029T124001Z_81cda7c8
+path error: applying Path.with_name("manifest.json") to a cache-entry directory
+looked in its parent instead of inside the entry. The resolver now supports the
+signals.npy file, its entry directory and its parent cache directory. Parent
+selection requires exactly one checkpoint-matching manifest; every selected
+payload still requires the encoder-embedded SHA256 and complete training IDs.
+Missing files/ambiguous entries are reported with actionable requested paths.
+
+The notebook now defaults to the requested exclusive provenance-only mode:
+Kaggle Accelerator None, both task audits, no GPU smoke, classifier, optimizer
+or full training. CPU setup skips all Mamba/CUDA probes and wheel/source builds;
+only missing scientific packages are installed, retaining strict preprocessing
+version checks. Full/GPU actions conflicting with audit-only mode are rejected.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-cache-path-release --tb=short
+```
+
+**155 passed, 6 skipped, 5 warnings in 56.68s.** Skips require real CUDA Mamba;
+warnings are existing scheduler notices. New regression coverage includes all
+three path forms, each missing file in each layout, ambiguous/unrelated cache
+entries, CPU-only dependency setup and actual controller/worker routing through
+both synthetic full-content audits with CUDA/model/trainer calls forbidden.
+Existing content mismatch/nonfinite/other-provenance rejection tests still pass.
+Notebook schema, all code-cell syntax, audit-only defaults and pinned settings
+also pass. Earlier focused testing exposed three older tests relying on notebook
+run defaults; their intended actions are now explicit and the release suite passes.
+
+A separate read-only check on the original downloaded SSL artifacts verified:
+all three path forms resolve the full reference (not the smoke cache), the original
+encoder SHA matches the pinned value, the reference payload matches its embedded
+SHA, and the full population is 17,441 ECGs. No originals were modified.
+Current Kaggle raw waveforms are not mounted locally: complete current/source
+content equivalence must still be executed on Kaggle before any transfer.
+No Kaggle execution or GPU training was launched.
+
+# Full SSL training-content proof - 2026-10-29
+
+Confirmed the historical stat signature hashes relative names/presence, byte
+sizes and nanosecond modification timestamps, not waveform bytes. Added an
+explicit original-reference-cache option; a sole stat mismatch can be accepted
+only after authenticating the complete reference payload against the pinned
+encoder and byte-comparing every finite deterministic training waveform.
+All other provenance/leakage/normalization gates remain exact. Original stat
+hashes remain in the report. No real-data full equivalence or GPU training was
+executed; the remaining 16,437 real records still require Kaggle verification.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-content-release --tb=short
+```
+
+**132 passed, 6 skipped, 5 warnings in 100.63s.** CUDA Mamba checks are skipped
+on this CPU host; warnings are existing scheduler notices. Ten new tests cover
+mtime sensitivity, complete content acceptance with retained stat hashes and
+fresh classifier heads, last-record-only changes (23/24 is insufficient),
+nonfinite content, reference corruption, wrong/missing manifests and IDs,
+unrelated provenance gates, and disabled opt-in rejection.
+Notebook schema, every code cell's Python syntax, first-cell settings propagation,
+and full SSL/pretraining task flags remaining False also passed. The initial
+sandboxed targeted run had 44 passes/2 skips and one Windows samefile-access
+failure; the full suite above passed with the required filesystem access.
+See [required reference artifacts and audit-only settings](ssl_content_identity.md).
+
+# Real SSL provenance artifact audit - 2026-10-29
+
+The successful SSL and failed fine-tuning session directories are now supplied
+locally. Read-only audit independently verified the pinned epoch-20 encoder SHA,
+184 finite encoder tensors, config/summary/checkpoint consistency and full-epoch
+completion evidence. Encoder/config/summary hashes match the failed session's
+saved source-verification record. All 88 input files were hashed/size/mtime
+recorded and rechecked unchanged after inspection.
+
+Dataset root/version, metadata/code hashes, reader/library versions, full saved
+environments, model config, normalization, all 1,000 fit IDs and fit settings
+match. The rejected field is isolated by elimination to raw_file_stats_sha256.
+The failed training-only value was not saved. Its cache's available digest is
+all-fold scope and must not be mislabeled as the failing training-only value.
+
+Source and current cache payload checksums pass. All 1,004 common training ECGs
+are bitwise equal (maximum difference zero), covering all normalization fit IDs.
+The other 16,437 training ECGs have no current cached counterpart. Timestamp-only
+drift/full-population equivalence is unproved, so strict rejection remains; no
+encoder or validation acceptance policy was changed for this case.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-artifact-scope-release --tb=short
+```
+
+**122 passed, 6 skipped, 5 warnings in 48.63s.** Skips require CUDA Mamba; warnings
+are the existing scheduler notice. The new regression confirms an all-fold
+supervised cache digest differs legitimately from SSL's training-only digest,
+and the live comparison correctly recomputes the latter, including unlabeled
+training records excluded from classification. The previous 121 checks still pass.
+
+No real GPU smoke or training was launched. Numeric operations on real artifacts
+only loaded finite weights and compared saved statistics/cached waveforms.
+See ssl_provenance_artifact_audit.md for evidence and the acceptance decision.
+
+---
+
+# SSL provenance diagnostics and verified directory aliases - 2026-10-29
+
+Reported failure: session 20261029T052515Z_51f75e15, superclass smoke, before
+training. No accessible copy of that session or original SSL metadata was
+provided here; prior remote access returned HTTP 403. Source inspection can
+identify the failed dictionary comparison, not the actual differing values.
+Earlier source export/config/split/patient checks passed; normalization had not
+yet been checked. No actual historical path or version difference is claimed.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-provenance-release --tb=short
+```
+
+**121 passed, 6 skipped, 5 warnings in 46.82s.** Skips require actual CUDA Mamba;
+warnings remain the existing scheduler transition notice. Windows filesystem
+directory-identity queries and disposable Git tests ran outside the sandbox.
+An initial sandboxed same-directory test was denied a Windows directory handle;
+the validator correctly rejected unverifiable identity, and the read-only test
+passed outside that restriction. No checks were removed to force a pass.
+
+New evidence:
+
+- Collect root, release, metadata/code hashes, raw signature, versions,
+  normalization and fit/split/patient-ID differences together. Assert exact
+  expected/actual values and complete lists in the saved comparison JSON.
+- Accept only a different spelling of the same existing filesystem directory,
+  with recorded samefile evidence and every other provenance field exact.
+- Reject absent mounts, different physical directories, and directory aliases
+  accompanied by package/code/source-signature differences. Missing fields and
+  bool-vs-integer assertions remain distinct; no rounding/sorting/version coercion.
+- Failed initialization preserves live config/environment/data manifest and
+  structured differences before updates, without writing model checkpoints.
+- Both task provenance-only audits construct no classifier or optimizer, report
+  zero fine-tuning steps, and collect both rejections when metadata mismatches.
+  Audit mode combined with full fine-tuning flags is blocked.
+- Existing SHA/completion/transfer/gradient guards, exact legacy continuation,
+  SSL/baseline training plumbing, patient splits, metrics and exports still pass.
+  Synthetic fixture source hashes remain unchanged by validation/transfer.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap, disabled full
+fine-tuning switches, audit default False and Git whitespace checks pass. The
+pretrained encoder, Mamba architecture, signal/cache implementations, labels
+and metrics are unchanged. No real GPU smoke or full training was launched.
+See ssl_provenance_diagnostics.md for the next bounded metadata-only run and
+what evidence is still needed to diagnose the user's actual failed session.
+
+---
+
+# SSL-pretrained classification fine-tuning - 2026-10-29
+
+The initial tree was clean on dev/unified-ecg-pipeline. The user's reported
+completed epoch-20 SSL export is pinned by exact Kaggle input path and SHA256
+8d99bd77ad9c65e15519cc744c57a1e683e0accd34fa8724c6a5382cdf1e38d4.
+Remote web access was unavailable and the Kaggle file-list API returned HTTP
+403, so the actual encoder was not independently downloaded/hashed locally.
+Actual source integrity/live-data validation and real GPU smokes remain required
+on Kaggle. No expensive fine-tuning or pretraining was launched here.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-ssl-finetuning-release --tb=short
+```
+
+**109 passed, 6 skipped, 5 warnings in 44.54s.** Six skipped tests require real
+CUDA Mamba, including two new classifier-transfer smokes. Warnings are the
+existing SequentialLR transition notice. Windows local Git integration tests
+ran outside the sandbox for MSYS. Local Torch remains 2.7.1+cpu with isolated
+WFDB 4.1.2; this is not the real Kaggle runtime.
+
+New focused evidence (22 passed, 2 CUDA skips):
+
+- Check checksum before deserializing; refuse wrong hash, smoke/epoch-19/
+  incomplete sources, nonfinite tensors, incompatible shapes or extra head keys,
+  missing trained-backbone declarations and contradictory completion sidecars.
+- Compare SSL training-only raw signatures against the same live population,
+  with exact normalizer, fit IDs, folds/patient IDs and held-out exclusions.
+  Reject altered normalization, raw signatures, training IDs or patient scope.
+- Verify both task widths/class orders; copied backbone tensors equal source
+  exactly while classification head/pooling tensors remain exactly as freshly
+  initialized. Deliberately poisoned finite source pooling is never transferred.
+- Exercise the existing BCE trainer, finite/nonzero gradient audits for backbone,
+  attention pool and head, source transfer reports, checkpoint serialization,
+  metrics and prediction exports with clearly identified CPU classifier doubles.
+- Execute both smoke-only and explicit full-budget worker branches using
+  synthetic epoch-20 source evidence (not 20 executed SSL epochs). Both smokes
+  precede either full task; missing/failed smoke blocks full tasks. Full synthetic
+  classification exports test metrics and validation-selected thresholds.
+- Verify original source fixture SHA256 remains unchanged. Existing baseline,
+  SSL, numerical guards, checkpoint continuation and deterministic resume tests
+  still pass. Legacy config comparison explicitly covers all optional fields
+  absent from the original supervised checkpoints.
+
+An early positive workflow fixture mismatched its declared dataset release;
+the strict fingerprint gate correctly rejected it. Matching the synthetic
+fixture's release setting fixed the test without relaxing production checks.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap, whitespace,
+disabled fine-tuning defaults and the exact source pin all pass. Original
+reference notebooks, Mamba architecture, signal/cache preprocessing and source
+baseline/SSL checkpoint files were not edited. Three fine-tuning flags default
+False; SSL_FINETUNE_SETTINGS starts with AMP off and LR 1e-4. See
+ssl_finetuning.md for exact required files, switch combinations and output paths.
+
+---
+
+# Milestone 2 masked reconstruction SSL - 2026-10-28
+
+Initial tree clean on dev/unified-ecg-pipeline. No real GPU smoke or full SSL
+pretraining was launched. Existing supervised checkpoints and original notebook
+artifacts were not modified. SSL adds no encoder architecture: a temporal
+feature method exposes the same Mamba operations and a separate linear head
+reconstructs 12-lead waveforms. Supervised state keys and forward results remain
+covered by regression checks.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-milestone2-release --tb=short
+```
+
+**87 passed, 4 skipped, 5 warnings in 36.15s.** Four skips require actual CUDA
+Mamba (three existing supervised tests, one new reconstruction test). Warnings
+are the existing SequentialLR transition notice. Local Torch remains CPU-only;
+Windows disposable Git integration tests ran outside the sandbox for MSYS.
+
+Focused evidence:
+
+- Deterministic contiguous masks share a window across all 12 leads, retain
+  exactly the requested rounded/clamped coverage and depend on seed/epoch/ECG ID,
+  independently of batch ordering. Targets are not mutated.
+- FP32 masked-only MSE ignores arbitrarily large unmasked errors and produces
+  zero gradients outside the masked region under ambient CPU autocast.
+- SSL data preparation works with diagnostic columns absent; it retains every
+  training ECG, reads no held-out waveform, fits training-only normalization,
+  rejects patient leakage and performs zero repeated raw reads across cached
+  epochs and repeated preparation.
+- Synthetic CPU encoder-double smoke and full-budget plumbing exercise actual
+  masked backward/optimizer updates, finite checks, checkpoints/encoder reload,
+  complete-record accounting, loss histories, split/config provenance, curves
+  and 12-lead reconstruction PNG/NPZ exports. These are not real Mamba results.
+- Injected NaN reconstruction aborts without exporting a successful encoder,
+  saving epoch/batch/ECG/tensor finite diagnostics.
+- Sequential worker tests use explicit CPU/CUDA/model doubles: SSL-only mode
+  does not invoke diagnostic-label audits; full mode is blocked without a smoke
+  or after a failed smoke. A passing smoke precedes explicit synthetic full mode.
+- Existing supervised tests, controlled checkpoint continuation, finite guards,
+  cache/split/normalization, secure bootstrap and notebook controls remain passing.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap, disabled SSL
+defaults and Git whitespace checks pass. A generated synthetic 12-lead plot was
+visually inspected: original/reconstruction curves, lead labels and shared mask
+shading are readable. No generated waveform/checkpoint artifacts are committed.
+
+Actual Kaggle must execute the preserved full-size CUDA Mamba SSL smoke first.
+Full PTB-XL pretraining remains an explicit later choice via RUN_SSL_PRETRAIN;
+both SSL flags currently default False. See ssl_pretraining.md for exact switches,
+loss semantics, training-only data boundaries, export scope and output paths.
+
+---
+
+# Controlled checkpoint continuation - 2026-10-28
+
+Read-only verification of the user's preserved real Kaggle checkpoints:
+superclass epoch 3 and subclass epoch 5. Checkpoint configs and metadata match
+adjacent config/manifests. Finite AdamW state and moment shapes restore on CPU
+for all 188 parameters; scheduler/scaler states roundtrip exactly. Original
+legacy configs pass the latest strict comparison; changing AMP to False fails
+that comparison as intended. Architecture source is unchanged and preprocessing
+Git source SHA256 matches the saved Kaggle identity. Original artifact hashes
+are preserved. No real Mamba GPU execution or full training was launched.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-controlled-continuation --tb=short
+```
+
+**75 passed, 3 skipped, 5 warnings in 25.15s.** Skips require actual CUDA Mamba;
+warnings are the existing scheduler transition notice. Full suite includes:
+
+- Reject changed model, class order, filtering, normalization, raw-file identity,
+  split order and missing checkpoint provenance.
+- Permit declared FP32/LR changes only as an explicit new weights-only run,
+  with exact original source identity/normalization and full or diagnostic-prefix
+  split comparison. Diagnostic cache containers are checked independently.
+- Resolve a unique preserved session/checkpoint, reject ambiguity and wrong SHA256.
+- Run the full worker on CPU synthetic model/setup/CUDA test doubles, then load
+  its full-run checkpoints into NEW diagnostic runs for both tasks. Verify
+  provenance/reset-state reports and unchanged source checkpoint hashes.
+- Existing NaN/Inf guards, exact resume, cache, splits, bootstrap/import isolation,
+  notebook sequential execution, metrics and export tests continue to pass.
+
+Compileall, notebook schema/syntax, unchanged embedded bootstrap and Git whitespace
+checks pass. The final notebook selects the audited session and hashes, AMP off,
+LR 1e-4, batch 2, one epoch, two diagnostic batches, and per-batch logging. Actual
+Kaggle must recheck its live data/preprocessing identity, strict Mamba state load,
+compatible wheels, FP32 GPU backward and both checkpoint-initialized diagnostics.
+CPU restoration is not proof of CUDA compatibility or subsequent epoch stability.
+See checkpoint_continuation.md for precise settings, paths and failure policy.
+
+---
+
+# Numerical stability release — 2026-10-28
+
+Initial checkout was clean on dev/unified-ecg-pipeline; origin was fetched.
+The user's prior real Kaggle run reportedly passed sync/install/audit, both
+smokes and cache, then both tasks failed nonfinite BCE during substantial
+full-data training. No failed-run artifacts were available for root-cause
+confirmation. Corrected GPU training has not been executed here.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-stability-final --tb=short
+```
+
+**66 passed, 3 skipped, 5 warnings in 24.08s.** The three skips require real
+CUDA Mamba; warnings are the existing SequentialLR transition notice. Runtime:
+Python 3.12.7, Torch 2.7.1+cpu, isolated WFDB 4.1.2. Windows disposable local Git
+integration tests ran outside the sandbox for MSYS transport; no fake-secret
+test contacted GitHub.
+
+New focused coverage (17 cases) deliberately injects NaN/Inf inputs, targets
+and logits, finite-logit/nonfinite-loss failures, nonfinite gradients, finite
+gradient elements with overflowed norm, and corrupt parameter/optimizer updates.
+It verifies epoch/batch/stage, ECG IDs, finite flags/ranges, AMP/LR context,
+JSON persistence, rejection before unsafe updates, and no invalid checkpoints.
+A CPU autocast spy verifies BCE operands are FP32 with autocast disabled.
+Validation-batch diagnostics, conservative-mode constraints, invalid class
+weight rejection, nonfinite checkpoint rejection, legacy exact restore and
+corrupt restored optimizer rejection pass. Explicit same-task weights-only
+initialization runs a complete synthetic diagnostic with recorded provenance.
+
+Existing sequential notebook/controller/worker tests still pass for disabled,
+diagnostic and full modes using explicit CPU model/CUDA/setup test doubles.
+The embedded bootstrap is unchanged and matches its tested module. Existing
+cache, patient split, normalization, checkpoint interruption, deterministic
+resume and export checks pass. Compileall, notebook schema/syntax and Git
+whitespace checks pass. The Mamba architecture, signal/cache preprocessing,
+04, the three original notebooks and the user's attempt notebook are unchanged.
+
+The new notebook defaults are conservative numerical verification: AMP off,
+LR 1e-4, batch 2, one epoch, two diagnostic batches for each task. A short
+synthetic or real-data smoke pass cannot establish later full-data stability.
+Kaggle still must execute corrected real Mamba FP32 backward, both diagnostics,
+then full-data epochs/evaluation. No new GPU scores or benchmark completion
+are claimed. See numerical_stability.md for safe Run All progression and
+checkpoint/wheel reuse, and the verified-versus-suspected cause distinction.
+
+---
+
+# Unattended Kaggle entry-point release — 2026-10-28
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-unattended-final --tb=short
+```
+
+**49 passed, 3 skipped, 5 warnings in 24.90s.** The three skipped checks require
+real CUDA Mamba. Warnings remain the existing PyTorch SequentialLR transition
+notice. No new real Kaggle authentication or GPU benchmark was executed here.
+
+The local Git integration tests ran outside the Windows sandbox because its
+MSYS local-transport startup was denied. They use disposable local/bare
+repositories and a fake secret only; they make no GitHub authentication calls.
+Initial CPU fixtures were updated to inject the synthetic reader into the new
+pre-cache smoke path. The complete release suite then passed.
+
+## New checks executed
+
+- Clone and fast-forward a real disposable Git branch; verify synchronized
+  local/remote commit IDs and a clean checkout after updates.
+- Refuse tracked and untracked local edits before requesting a secret;
+  preserve local-only/diverged commits without reset, stash or clean.
+- Verify a fake secret never enters command arguments, helper-file contents,
+  Git configuration or displayed output; helper files are removed.
+- Kaggle Secrets provider failure details and Git authentication output are
+  suppressed rather than leaking their raw messages. Real Kaggle Secrets
+  access still requires execution on the platform.
+- Verify source precedence in a fresh interpreter despite an intentionally
+  preloaded stale src package from another directory.
+- Verify the controller launches a fresh worker, removes GitHub-token
+  environment variables from worker execution, and fails if the worker
+  exits without a completed execution summary.
+- Verify bootstrap/setup failure summaries retain their correct stage and
+  success summaries identify completed experiments/output paths.
+- Simulate an interrupted checkpoint write and verify the preceding completed
+  checkpoint remains byte-for-byte intact.
+- Execute all notebook cells sequentially with flags off. Verify the embedded
+  bootstrap exactly matches its tested standard-library module source.
+- Execute both complete worker orchestration branches (full-data and diagnostic)
+  with explicit CPU CUDA/model test doubles, synthetic reader, actual training,
+  checkpointing, evaluation, cache reuse and export checks. The new short smoke
+  occurs before the full cache build. These are not real Mamba GPU results.
+- Existing head, normalization, cache, labels, patient folds, generated WFDB
+  file roundtrip and deterministic CPU resume regressions remain passing.
+
+Compileall, notebook schema/syntax, and Git whitespace checks also pass.
+All three original reference notebooks, 04, and the user's attempt notebook
+remain unchanged. Final notebook controls now live in the first cell; the
+embedded bootstrap needs no attached source dataset. Git/pip execution is
+noninteractive, long stages have 30-second progress, and scientific imports
+occur in a fresh process after installation, without a kernel restart.
+
+## Real execution still required
+
+Kaggle secret permission/read access, GitHub synchronization from that runtime,
+wheel/source-build compatibility, real data/GPU/AMP smoke, cache throughput,
+VRAM feasibility and full superclass/subclass training/test scores remain
+unverified locally. The final notebook prints and persists passed checks,
+completed/skipped/failed experiments and results under
+`/kaggle/working/btp_outputs/sessions/<run_id>/final_summary.json`.
+
+---
+
+# Task 3 release checks — 2026-10-28
+
+Repository: existing dev/unified-ecg-pipeline. Remote fetched before changes.
+The initial working tree included the user's one-line encoder fix and new
+`ecg-xl-btp.ipynb`; both are preserved and included in this milestone.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-task3-release --tb=short
+```
+
+**41 passed, 3 skipped, 5 warnings in 26.27s.** The three skips require real
+Mamba CUDA kernels; warnings remain PyTorch SequentialLR transition deprecation.
+Local runtime remains Python 3.12.7, Torch 2.7.1+cpu, NumPy 1.26.4, pandas
+2.2.2, SciPy 1.13.1, scikit-learn 1.5.1, with isolated WFDB 4.1.2 from the
+previous milestone. The user's reported Python 3.13/Torch 2.11/WFDB 4.3.1 Kaggle
+stack is documented, **not locally reproduced**.
+
+## New regression evidence
+
+- Actual encoder/pooling/head code runs on CPU with a test double only for
+  the CUDA-only block. Both 5- and 23-output models return pooled features
+  from the encoder, call the head once, and backpropagate finite gradients.
+- Deterministic sampled training-only normalization, dedicated sampling seed,
+  exact full mode, shared superclass/subclass cache/statistics and retained
+  original split/rare-class behavior pass.
+- Cached normalized tensors match the uncached path exactly. Changing filter,
+  metadata or source-file stats invalidates caches; incomplete completion
+  markers and same-size corrupted payload bytes trigger rebuilds.
+- A cached DataLoader reaches its first batch and an actual optimizer update.
+  Two training passes use **zero additional waveform-reader calls** after
+  initial cache creation. Augmentation remains outside deterministic caching.
+- A synthetic end-to-end diagnostic performs training/checkpoint/evaluation
+  exports without test predictions or tuned thresholds. Diagnostic limits
+  cannot be used as benchmark data.
+- Every final notebook code cell executes sequentially with all flags disabled.
+  Explicit CPU model/CUDA/setup test doubles also exercise Run All with both
+  tasks, smoke, full training/evaluation/export branches, and diagnostic branches.
+  These tests do not claim real Mamba/GPU execution.
+- Setup tests confirm working installations skip install and source-build
+  commands retain pinned versions, KEEP_CUDA=True, MAX_JOBS=2, verbose logging
+  and --no-build-isolation. No actual CUDA installation was attempted locally.
+- Existing label, data, metric, checkpoint, resume, and generated WFDB roundtrip
+  tests continue to pass.
+
+## Small synthetic performance check (not a Kaggle benchmark)
+
+36 generated waveforms, cached float32 100 Hz data, CPU test-only linear adapter:
+
+| Measurement | Observed |
+| --- | --- |
+| Metadata/cache/normalization preparation | 0.1484 s |
+| Cached first batch (4 records) | 0.00173 s |
+| BCE backward + optimizer step | 0.00076 s |
+| Reader calls after preparation across 48 training samples | 0 |
+
+These numbers measure local synthetic plumbing, **not** WFDB storage throughput
+or preserved Mamba training speed. Their useful evidence is reaching optimization
+and eliminating repeated reader/filter work. Real initial cache creation still
+reads and filters every required record once; its Kaggle wall time is unknown.
+
+Additional checks: compileall, notebook schema/syntax and Git whitespace checks
+pass. The original three reference notebooks are byte-for-byte unchanged.
+`04_btp_experiments.ipynb` has no Git diff (Windows text newline normalization
+is accounted for). The user's attempt notebook is preserved as supplied and has
+zero saved outputs, so its reported smoke success is attributed to the user.
+
+## Still needs real Kaggle execution
+
+- Pinned source-build/supplied-wheel compatibility on the actual fresh runtime.
+- Real PTB-XL release/data/hash verification, full deterministic-cache build
+  duration and space use, first-batch time, data-wait timing and GPU utilization.
+- Both full-architecture CUDA/AMP smoke runs after the permanent head fix.
+- Full superclass/subclass epochs, validation/test performance and complete
+  benchmark outputs. No new real classification scores are claimed.
+- Actual GPU memory budget and fused-kernel/multi-worker reproducibility.
+
+See README and kaggle_execution.md for the Run All controls and resume procedure.
+
+---
+
+# Executed checks — latest 2026-10-27
+
+## Kaggle preflight preparation milestone
+
+The repository was clean on `dev/unified-ecg-pipeline` before this milestone.
+The existing commit was pushed successfully to GitHub. New work prepares real
+Kaggle execution; it does **not** claim real PTB-XL waveform or CUDA validation.
+
+Final local command (PowerShell, repository root):
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path 'outputs/wfdb-check').Path
+python -m pytest -q --basetemp=outputs/pytest-kaggle-validation-1 --tb=short
+```
+
+Result: **29 passed, 3 skipped, 5 warnings in 45.28s**. The three skipped tests
+need actual Mamba CUDA kernels. The warnings remain PyTorch's internal
+SequentialLR transition deprecation. Python/Torch/scientific package versions
+are unchanged from the baseline below.
+
+WFDB 4.1.2 was installed with `--target outputs/wfdb-check --no-deps` to avoid
+changing the global Python environment. That ignored folder is not committed;
+normal users install WFDB through requirements. The passing suite includes:
+
+- Unique, absent, ambiguous and invalid explicit dataset-root diagnostics.
+- Both official target vocabularies and metadata audit exports/hashes.
+- Bounded smoke normalization from training IDs only; no test-fold waveform
+  reads, with one tiny train/validation batch for both tasks.
+- A real WFDB `.hea`/`.dat` write/read roundtrip using **locally generated ECG
+  waveforms**, including sampling-frequency validation. These are not PTB-XL.
+- Finite BCE, finite nonzero gradients, actual optimizer weight changes and
+  validation forward using a **test-only CPU linear adapter**. This verifies
+  smoke machinery, not Mamba or GPU execution.
+- Wrong raw waveform shape and missing GPU diagnostics.
+- All updated notebook code cells execute safely with default flags False;
+  no installation, dataset read or training is triggered. Missing smoke/audit
+  evidence blocks the full-run control path. Epochs are centrally configured.
+- All existing pipeline, metrics, synthetic experiment and checkpoint-resume
+  tests continue to pass.
+
+`python -m compileall -q src tests`, notebook schema/syntax validation and
+`git diff --check` also pass. Original reference notebooks remain untouched.
+
+Still requires **actual Kaggle execution**: discovering the user's attached
+real v1.0.3 dataset, auditing its patient metadata, reading its real 100 Hz
+waveforms, matching CUDA wheels, initializing the full 384-wide/eight-block
+Mamba, passing real-data forward/backward/AMP smoke for both heads, fitting
+full-training normalization, completing superclass/subclass training and test
+evaluation, validating GPU memory use, and inspecting/exporting those real-run
+artifacts. See `kaggle_execution.md` and the notebook's explicit run controls.
+
+## Baseline milestone — 2026-10-26
+
+Final automated command, run from `D:\Coding\BTP\BTP_project_files`:
+
+```text
+python -m pytest -q --basetemp=outputs/pytest-final --tb=short
+21 passed, 3 skipped, 5 warnings in 19.46s
+```
+
+The warnings are PyTorch's internal SequentialLR scheduler transition deprecation
+warning. They do not indicate failed optimization. Earlier test runs encountered
+Windows sandbox temporary-directory permissions; selecting a repository-local
+ignored output directory resolved those environmental failures. A test-fixture
+syntax typo was also fixed before the successful runs.
+
+Runtime: Python 3.12.7, PyTorch 2.7.1+cpu, NumPy 1.26.4, pandas 2.2.2,
+SciPy 1.13.1, scikit-learn 1.5.1. No CUDA device and no mamba-ssm installed.
+Tests do not depend on wfdb being installed: a deterministic injected reader
+generates synthetic ECGs; a mocked WFDB reader separately checks transpose and
+frequency validation. The only downloaded dataset file is the official 9.5 KB
+SCP mapping fixture. No real patient metadata or waveforms were downloaded.
+
+| Required check | Executed evidence |
+| --- | --- |
+| Superclass labels | Five-class order, multiple diagnoses and confidence-zero code presence |
+| Subclass labels | All **23 actual official** subclasses covered; no rare-class cutoff; absent columns retained |
+| Encoding/order | Binary multi-hot vectors; mapping row shuffle leaves deterministic order unchanged |
+| Patient separation | Official folds, pairwise overlaps rejected, fractional/invalid folds rejected |
+| Waveform tensors/loaders | Both layouts, 100 Hz `(12,1000)` and 500 Hz `(12,5000)`, no dropped training tail |
+| Training-only normalization | Streamed statistics agree with direct processed-training calculations; held-out perturbations do not change fit; both tasks agree |
+| Corrupt/unlabeled records | Explicit waveform failures; unlabeled drop/error policies; excluded IDs recorded |
+| Augmentations | All nine operations preserve shape and finiteness; seeded reproducibility and stochastic repeated calls |
+| Mamba real forward | **3 skipped tests:** 5/23/24 output widths require CUDA and compatible mamba-ssm |
+| BCE and common training | Finite weighted multilabel BCE losses, backward updates and validation for 5/23/24 output widths using a test-only linear adapter |
+| Early stopping | Deliberately unreachable improvement tolerance stops at expected patience |
+| Checkpoint serialization | Strict weights-only reload; reordered vocabulary rejected; state/history restored |
+| Interrupted resume | Three-epoch CPU run matches interrupted-and-resumed weights bit-for-bit with zero workers |
+| Metrics | Macro/micro AUROC/AP/F1, precision/recall, counts/support; all-negative/all-positive edge cases; strict JSON null for missing ranking scores |
+| Threshold leakage | Validation-only threshold tuning; explicit test split rejected; absent/single-valued validation columns keep 0.5 |
+| Exports | Per-class/overall metrics, confusion counts and predictions CSV/JSON files verified |
+| Full orchestration | One-epoch synthetic superclass and subclass experiments created unique output directories, best/last checkpoints, manifests, thresholds, figures and summaries |
+| Notebook | nbformat validation and Python syntax parsing passed |
+
+Additional executed checks:
+
+- Every default executable cell in `04_btp_experiments.ipynb` ran successfully
+  in a fresh namespace, without a dataset, package installation or training.
+- `python -m compileall -q src tests` passed.
+- `git diff --check` passed.
+- All three original notebook files were compared **byte-for-byte** with
+  `git show HEAD:<filename>` and are unchanged.
+- Generated loss curves and the 23-column confusion grid were visually inspected.
+  These figures contain **synthetic adapter results only**, not PTB-XL performance.
+
+## Still requires Kaggle / real data
+
+- Real WFDB waveform loading and v1.0.3 metadata integrity on the attached dataset.
+- Mamba CUDA installation, forward/backward, AMP and exact source-model/checkpoint
+  compatibility. Optional tests compare the extracted classifier to the original
+  executable architecture with strict state_dict loading when CUDA is available.
+- Real training, GPU memory requirements for the 384-wide/eight-block reference,
+  actual classification metrics and measured Mamba inference/training time.
+- Multi-worker reproducibility and binary wheel compatibility with Kaggle's
+  actual Python/Torch/CUDA/CXX11 ABI combination.
+
+No performance results are claimed for the new pipeline. The saved results in
+the original notebooks use a different dataset version and, for evaluation, a
+different model size. See `notebook_analysis.md` before reusing old checkpoints.
